@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata: what software centres (KDE Discover, GNOME Software)
+     show about the application, including its author and licence. -->
+<component type="desktop-application">
+  <id>amplitude.desktop</id>
+  <name>Amplitude</name>
+  <summary>Lightweight audio player</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="amplitude.desktop">
+    <name>Srđan Rudić</name>
+  </developer>
+  <developer_name>Srđan Rudić</developer_name>
+  <url type="homepage">https://amplitude.cr.rs</url>
+  <description>
+    <p>
+      Amplitude is a lightweight audio player for your own music files: a
+      compact main window, a ten-band equaliser and a playlist that dock
+      together. It has its own look, drawn sharp at any
+      size, and also loads classic .wsz skins.
+    </p>
+    <p>
+      It plays MP3, FLAC, WAV, Ogg Vorbis, Opus, AAC/M4A and tracker modules
+      (MOD, XM, S3M, IT) without gaps between tracks, and needs nothing
+      beyond the system's own libraries.
+    </p>
+  </description>
+  <launchable type="desktop-id">amplitude.desktop</launchable>
+  <provides>
+    <binary>amplitude</binary>
+  </provides>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>

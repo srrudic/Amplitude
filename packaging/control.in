@@ -1,0 +1,14 @@
+Package: amplitude
+Version: @VERSION@
+Section: sound
+Priority: optional
+Architecture: @ARCH@
+Depends: libc6, libx11-6
+Recommends: zenity | kdialog, libdbus-1-3
+Maintainer: @MAINTAINER@
+Homepage: https://amplitude.cr.rs
+Description: Lightweight audio player
+ Amplitude is a lightweight audio player for your own files, with a tiny
+ executable and memory footprint. It plays MP3, FLAC, WAV, Ogg Vorbis,
+ Opus, AAC/M4A and tracker modules (MOD, XM, S3M, IT), and loads
+ classic .wsz skins.
