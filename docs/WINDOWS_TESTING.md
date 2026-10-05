@@ -313,7 +313,7 @@ With eight or more tracks loaded:
 - **L3** MISC: Sort by title, by file name, by folder and file; Reverse;
   Randomize. While a track plays it keeps playing and stays marked.
 - **L4** Delete key removes the selection; Ctrl+click and Shift+click
-  select as described in the README.
+  select as described in `docs/USAGE.md`.
 - **L5** *(needs the user for the dialogs)* LIST: Save list writes a
   `.m3u` (the dialog offers "Playlists (*.m3u)"), Open list replaces the
   list with it, New list empties it. Save and reopen a list containing the
