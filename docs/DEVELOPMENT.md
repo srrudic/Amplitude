@@ -526,9 +526,11 @@ published to GitHub Pages whenever it changes. One-time setup:
    tick "Enforce HTTPS".
 
 **A release**, by hand: commit, set `VERSION` and `RELEASE_DATE` in the
-Makefile, run `make dist`, create a GitHub Release for the tag and attach
-the seven files from `build/dist/`, then put their addresses into the
-download buttons of `website/index.html`.
+Makefile, run `make dist`, create a GitHub Release whose tag is the bare
+version number (`0.1.0`, with no "v" in front) and attach the seven files
+from `build/dist/`. Then change the version in the download buttons of
+`website/index.html`, whose addresses have the form
+`https://github.com/srrudic/Amplitude/releases/download/<tag>/<file>`.
 
 ## 12. Known gaps
 
