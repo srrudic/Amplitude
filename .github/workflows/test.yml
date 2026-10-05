@@ -1,0 +1,62 @@
+# Builds every target and runs the tests on each push and pull request.
+#
+# The machine is Ubuntu, so the compilers and packaging tools come from its
+# package manager and the Makefile uses them in place of its own downloads.
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc make libx11-6 mingw-w64 nsis rpm zip
+
+      - name: Linux build
+        run: make -j"$(nproc)"
+
+      # There is no sound server here, so the audio test runs without leak
+      # checking (see AUDIO_TEST_ENV in the Makefile). Its own checks, and
+      # every other test's leak checking, are unaffected.
+      - name: Unit tests
+        run: make -j"$(nproc)" test AUDIO_TEST_ENV=ASAN_OPTIONS=detect_leaks=0
+
+      - name: Windows builds, installers and Linux packages
+        run: make -j"$(nproc)" all
+
+      - name: Release files
+        run: make dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amplitude-${{ github.sha }}
+          path: build/dist/
+          if-no-files-found: error
+
+  # The end-to-end test drives real windows, so it gets a virtual display
+  # and a window manager. It has not been run in this environment yet and
+  # depends on the window manager's timing; until it has proved itself
+  # here it reports but does not fail the build.
+  gui:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc make libx11-6 xvfb openbox
+
+      - name: End-to-end test
+        run: |
+          make -j"$(nproc)"
+          xvfb-run -a -s "-screen 0 1920x1080x24" sh -c 'openbox & sleep 1; make test-gui'
