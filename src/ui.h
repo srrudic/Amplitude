@@ -72,6 +72,9 @@ enum {
     UI_JUMP_TITLEBAR,
     UI_JUMP_CLOSE,
     UI_JUMP_LIST,
+    UI_JUMP_PLAY,           /* the JUMP button: play the highlighted track */
+    UI_JUMP_ENQUEUE,        /* the ENQUEUE button: put it in the play queue */
+    UI_JUMP_DISMISS,        /* the CLOSE button, as opposed to the one in the title bar */
     /* About window */
     UI_ABOUT_TITLEBAR,
     UI_ABOUT_CLOSE,
@@ -173,8 +176,8 @@ int  dialog_hit(int w, int x, int y, int titlebar, int close);
 /* --- Jump to file window -------------------------------------------------- */
 
 #define JUMP_W    275
-#define JUMP_H    148
-#define JUMP_ROWS 10
+#define JUMP_H    232       /* twice the main window */
+#define JUMP_ROWS 16
 
 typedef struct {
     const char *query;      /* UTF-8 text typed so far */

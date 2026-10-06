@@ -271,6 +271,11 @@ static void test_hit_testing(const Skin *skin)
     CHECK_INT(jump_hit(268, 7), UI_JUMP_CLOSE);
     CHECK_INT(jump_hit(100, 7), UI_JUMP_TITLEBAR);
     CHECK_INT(jump_hit(100, 60), UI_JUMP_LIST);
+    CHECK_INT(jump_hit(100, 190), UI_JUMP_LIST);        /* the sixteenth row */
+    CHECK_INT(jump_hit(20, JUMP_H - 17), UI_JUMP_PLAY);
+    CHECK_INT(jump_hit(70, JUMP_H - 17), UI_JUMP_ENQUEUE);
+    CHECK_INT(jump_hit(200, JUMP_H - 17), UI_NONE);
+    CHECK_INT(jump_hit(JUMP_W - 20, JUMP_H - 17), UI_JUMP_DISMISS);
     CHECK_INT(jump_row_at(60), 2);
 }
 

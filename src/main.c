@@ -1210,6 +1210,16 @@ static void jump_play_selected(void)
     set_window_visible(WIN_JUMP, 0);
 }
 
+/* Puts the highlighted match in the play queue (or takes it back out) and
+ * leaves the window open, so that several can be queued in a row. */
+static void jump_enqueue_selected(void)
+{
+    if (jump_selected >= 0 && jump_selected < jump_count) {
+        playlist_queue_toggle(jump_matches[jump_selected]);
+        queue_dirty = 1;
+    }
+}
+
 /* Keyboard input while the jump window is open. */
 static void jump_input(const PlatEvent *ev)
 {
@@ -1232,14 +1242,15 @@ static void jump_input(const PlatEvent *ev)
         set_window_visible(WIN_JUMP, 0);
         break;
     case PK_ENTER:
-        /* Shift+Enter queues the track to play next and leaves the window
-         * open for more; Enter alone plays it now. */
-        if ((ev->mods & PMOD_SHIFT) && jump_selected >= 0 && jump_selected < jump_count) {
-            playlist_queue_toggle(jump_matches[jump_selected]);
-            queue_dirty = 1;
-        } else {
+        /* Enter plays it now; Shift+Enter queues it to play next. */
+        if (ev->mods & PMOD_SHIFT)
+            jump_enqueue_selected();
+        else
             jump_play_selected();
-        }
+        break;
+    case 'Q':
+        if (ev->mods & PMOD_CTRL)       /* a plain Q is a letter of the search */
+            jump_enqueue_selected();
         break;
     case PK_UP:
     case PK_DOWN:
@@ -1541,7 +1552,14 @@ static void do_action(int element)
         set_window_visible(WIN_PL, 0);
         break;
     case UI_JUMP_CLOSE:
+    case UI_JUMP_DISMISS:
         set_window_visible(WIN_JUMP, 0);
+        break;
+    case UI_JUMP_PLAY:
+        jump_play_selected();
+        break;
+    case UI_JUMP_ENQUEUE:
+        jump_enqueue_selected();
         break;
     case UI_LOGO:
     case CMD_ABOUT:

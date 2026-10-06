@@ -84,10 +84,9 @@ The other buttons along the bottom each open a menu too:
 
 **Play queue.** To hear something next without changing the list, queue
 it: select tracks in the playlist and press Q (or MISC, "Queue selected to
-play next"), or in jump to file press Shift+Enter on a match. Queued tracks
+play next"), or in jump to file use the ENQUEUE button, Ctrl+Q or Shift+Enter on a match. Queued tracks
 show their place as `[1]`, `[2]`, ... and are played in that order as soon
-as the current track ends, before shuffle or list order continues. Q or
-Shift+Enter again takes a track back out; "Clear queue" empties it. The
+as the current track ends, before shuffle or list order continues. Doing the same again takes a track back out; "Clear queue" empties it. The
 queue is not saved when the player closes.
 
 Next to them are a small set of transport controls (previous, play, pause,

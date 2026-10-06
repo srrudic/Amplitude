@@ -94,7 +94,7 @@ drive click 1 230 24 0  popup yes  menu 30 177  click 1 50 68 0
 
 echo "--- drag and drop onto the playlist, jump to file"
 drive drop 2 "file://$WORK/music/Album%20A/01%20alpha.wav"
-drive key 0 j 4  size 3 275 148  key 3 d 0  key 3 e 0  key 3 l 0  key 3 Return 0  hidden 3
+drive key 0 j 4  size 3 275 232  key 3 d 0  key 3 e 0  key 3 l 0  key 3 Return 0  hidden 3
 drive key 0 v 0
 
 echo "--- a second start hands its file to the running player"
@@ -191,6 +191,17 @@ drive key 0 s 0  key 0 e 0  click 2 100 47 0  key 2 q 0  key 0 b 0  wait 300  ke
 quit
 ok "previous went back to the first track" setting "track=0"
 ok "shuffle was on" setting "shuffle=1"
+
+echo "--- jump to file: the ENQUEUE button and Ctrl+Q"
+# Highlight the third track; queue it with the button, take it back out
+# with Ctrl+Q and queue it again the same way. It must then follow the first.
+export XDG_CONFIG_HOME="$WORK/config-jumpqueue"
+INI="$XDG_CONFIG_HOME/amplitude/amplitude.ini"
+start --scale 1 "$WORK/queue"
+drive key 0 j 4  size 3 275 232  key 3 Down 0  key 3 Down 0  click 3 70 215 0  key 3 q 4  key 3 q 4  size 3 275 232
+drive click 3 250 215 0  hidden 3  wait 4000                      # the CLOSE button
+quit
+ok "the track queued from the jump window played next" setting "track=2"
 
 if [ $failed -eq 0 ]; then echo "gui test passed"; else echo "gui test FAILED"; fi
 exit $failed

@@ -18,6 +18,14 @@
 #define FIELD_H   14
 #define LIST_Y    38
 #define ROW_H     10
+#define BUTTON_Y  (JUMP_H - 26)
+#define BUTTON_H  18
+#define JUMP_X    FIELD_X       /* the JUMP button */
+#define JUMP_BW   38
+#define ENQUEUE_X (JUMP_X + JUMP_BW + 4)
+#define ENQUEUE_W 56
+#define CLOSE_W   44
+#define CLOSE_X   (FIELD_X + FIELD_W - CLOSE_W)     /* at the right edge of the list */
 
 int jump_hit(int x, int y)
 {
@@ -27,12 +35,28 @@ int jump_hit(int x, int y)
         return element;
     if (x >= FIELD_X && x < FIELD_X + FIELD_W && y >= LIST_Y && y < LIST_Y + JUMP_ROWS * ROW_H)
         return UI_JUMP_LIST;
+    if (y >= BUTTON_Y && y < BUTTON_Y + BUTTON_H) {
+        if (x >= JUMP_X && x < JUMP_X + JUMP_BW)
+            return UI_JUMP_PLAY;
+        if (x >= ENQUEUE_X && x < ENQUEUE_X + ENQUEUE_W)
+            return UI_JUMP_ENQUEUE;
+        if (x >= CLOSE_X && x < CLOSE_X + CLOSE_W)
+            return UI_JUMP_DISMISS;
+    }
     return UI_NONE;
 }
 
 int jump_row_at(int y)
 {
     return (y - LIST_Y) / ROW_H;
+}
+
+/* A push button in the built-in look, with its label centred. */
+static void button(Canvas *c, int x, int w, const char *label, int pressed)
+{
+    gfx_rect(c, x, BUTTON_Y, w, BUTTON_H, COL_BODY);
+    gfx_bevel(c, x, BUTTON_Y, w, BUTTON_H, pressed ? COL_DARK : COL_LIGHT, pressed ? COL_LIGHT : COL_DARK);
+    gfx_text(c, x + (w + 1 - gfx_text_width(label)) / 2 + pressed, BUTTON_Y + 6 + pressed, label, COL_TEXT);
 }
 
 void jump_draw(uint32_t *framebuffer, int scale, const JumpModel *m)
@@ -78,4 +102,8 @@ void jump_draw(uint32_t *framebuffer, int scale, const JumpModel *m)
         }
     }
     gfx_reset_clip(c);
+
+    button(c, JUMP_X, JUMP_BW, "JUMP", m->pressed == UI_JUMP_PLAY);
+    button(c, ENQUEUE_X, ENQUEUE_W, "ENQUEUE", m->pressed == UI_JUMP_ENQUEUE);
+    button(c, CLOSE_X, CLOSE_W, "CLOSE", m->pressed == UI_JUMP_DISMISS);
 }
