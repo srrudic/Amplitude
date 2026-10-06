@@ -124,13 +124,13 @@ ok "playlist kept across the restart" tracks 6
 
 echo "--- colour change from the menu"
 start
-drive rclick 0 50 50 500 300  menu 30 127  popup yes  menu 30 52  popup no     # Color... > Amber
+drive rclick 0 50 50 500 300  menu 30 140  popup yes  menu 30 52  popup no     # Color... > Amber
 quit
 ok "colour saved" setting "color=#FFB347"
 
 echo "--- size change while running"
 start
-drive rclick 0 50 50 500 300  menu 30 113  popup yes  menu 30 91  wait 500     # Size... > 200%
+drive rclick 0 50 50 500 300  menu 30 126  popup yes  menu 30 91  wait 500     # Size... > 200%
 drive size 0 550 232  size 1 550 232  below 0 1
 "$DRIVE" click 0 536 14 0 >/dev/null; wait "$DRIVE_PID" 2>/dev/null; DRIVE_PID=
 ok "size saved" setting "scale_percent=200"
@@ -200,7 +200,7 @@ echo "--- jump to file: the ENQUEUE button and Ctrl+Q"
 export XDG_CONFIG_HOME="$WORK/config-jumpqueue"
 INI="$XDG_CONFIG_HOME/amplitude/amplitude.ini"
 start --scale 1 "$WORK/queue"
-drive key 0 j 4  size 3 275 232  key 3 Down 0  key 3 Down 0  click 3 70 215 0  key 3 q 4  key 3 q 4  size 3 275 232
+drive click 2 264 210 0  size 3 275 232  key 3 Down 0  key 3 Down 0  click 3 70 215 0  key 3 q 4  key 3 q 4  size 3 275 232
 drive click 3 250 215 0  hidden 3  wait 4000                      # the CLOSE button
 quit
 ok "the track queued from the jump window played next" setting "track=2"

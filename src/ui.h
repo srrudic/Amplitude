@@ -61,6 +61,7 @@ enum {
     UI_PL_SELECT,
     UI_PL_MISC,
     UI_PL_LISTOPTS,
+    UI_PL_JUMP,             /* the magnifier: opens jump to file; built-in skin only */
     UI_PL_PREV,             /* the small transport controls */
     UI_PL_PLAY,
     UI_PL_PAUSE,
@@ -150,7 +151,7 @@ typedef struct {
 /* Sets the window size (unscaled pixels) used by every pl_* function. */
 void pl_set_size(int w, int h);
 void pl_draw(uint32_t *framebuffer, int scale, const Skin *skin, const PlModel *model);
-int  pl_hit(int x, int y);
+int  pl_hit(const Skin *skin, int x, int y);
 /* Left edge of the ADD, REM, SEL and MISC buttons (n = 0..3) and of LIST,
  * for placing their menus. */
 #define PL_BUTTON_PITCH 29

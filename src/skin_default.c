@@ -539,6 +539,26 @@ static void mini_icon(Canvas *c, int which, int x, int y, uint32_t color)
     }
 }
 
+/* A magnifying glass, about 10 across, with the centre of its lens at cx, cy. */
+static void magnifier_icon(Canvas *c, float cx, float cy, uint32_t color)
+{
+    float ring[13 * 2], handle[4];
+    int i;
+
+    for (i = 0; i < 13; i++) {
+        float a = (float)i * PI_F / 6;
+
+        ring[i * 2] = cx + 3.0f * cosf(a);
+        ring[i * 2 + 1] = cy + 3.0f * sinf(a);
+    }
+    gfx_polyline(c, ring, 13, 1.3f, color);
+    handle[0] = cx + 2.4f;
+    handle[1] = cy + 2.4f;
+    handle[2] = cx + 5.2f;
+    handle[3] = cy + 5.2f;
+    gfx_polyline(c, handle, 2, 1.8f, color);
+}
+
 static void paint_pledit(Canvas *c)
 {
     static const char *const labels[] = { "ADD", "REM", "SEL", "MISC" };
@@ -591,6 +611,9 @@ static void paint_pledit(Canvas *c)
         mini_icon(c, i, 126 + 4 + i * 9, 72 + 23, COL_TEXT);
     groove(c, 126 + 63, 72 + 21, 36, 11);
     list_button(c, 126 + 104, 72 + 8, "LIST");
+    /* Jump to file, in the space left between LIST and the corner */
+    button(c, 126 + 131, 72 + 8, 16, 18, 0);
+    magnifier_icon(c, 126 + 131 + 7.0f, 72 + 8 + 8.0f, COL_TEXT);
 }
 
 void skin_paint_builtin(Canvas *c, int sheet)

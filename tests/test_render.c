@@ -246,22 +246,32 @@ static void test_hit_testing(const Skin *skin)
     CHECK(eq_slider_value(0) == 1.0f && eq_slider_value(500) == -1.0f && eq_slider_value(69) == 0.0f);
 
     pl_set_size(PL_MIN_W, 232);
-    CHECK_INT(pl_hit(100, 10), UI_PL_TITLEBAR);
-    CHECK_INT(pl_hit(100, 60), UI_PL_LIST);
-    CHECK_INT(pl_hit(24, 210), UI_PL_ADD);
-    CHECK_INT(pl_hit(54, 210), UI_PL_REMOVE);
-    CHECK_INT(pl_hit(83, 210), UI_PL_SELECT);
-    CHECK_INT(pl_hit(112, 210), UI_PL_MISC);
-    CHECK_INT(pl_hit(39, 210), UI_NONE);                /* the gap between ADD and REM */
-    CHECK_INT(pl_hit(pl_list_button_x() + 10, 210), UI_PL_LISTOPTS);
-    CHECK_INT(pl_hit(129, 220), UI_PL_PREV);            /* small controls, 9 wide each */
-    CHECK_INT(pl_hit(138, 220), UI_PL_PLAY);
-    CHECK_INT(pl_hit(147, 220), UI_PL_PAUSE);
-    CHECK_INT(pl_hit(156, 220), UI_PL_STOP);
-    CHECK_INT(pl_hit(165, 220), UI_PL_NEXT);
-    CHECK_INT(pl_hit(174, 220), UI_PL_OPEN);
-    CHECK_INT(pl_hit(183, 220), UI_NONE);
-    CHECK_INT(pl_hit(270, 228), UI_PL_RESIZE);
+    CHECK_INT(pl_hit(skin, 100, 10), UI_PL_TITLEBAR);
+    CHECK_INT(pl_hit(skin, 100, 60), UI_PL_LIST);
+    CHECK_INT(pl_hit(skin, 24, 210), UI_PL_ADD);
+    CHECK_INT(pl_hit(skin, 54, 210), UI_PL_REMOVE);
+    CHECK_INT(pl_hit(skin, 83, 210), UI_PL_SELECT);
+    CHECK_INT(pl_hit(skin, 112, 210), UI_PL_MISC);
+    CHECK_INT(pl_hit(skin, 39, 210), UI_NONE);                /* the gap between ADD and REM */
+    CHECK_INT(pl_hit(skin, pl_list_button_x() + 10, 210), UI_PL_LISTOPTS);
+    CHECK_INT(pl_hit(skin, 129, 220), UI_PL_PREV);            /* small controls, 9 wide each */
+    CHECK_INT(pl_hit(skin, 138, 220), UI_PL_PLAY);
+    CHECK_INT(pl_hit(skin, 147, 220), UI_PL_PAUSE);
+    CHECK_INT(pl_hit(skin, 156, 220), UI_PL_STOP);
+    CHECK_INT(pl_hit(skin, 165, 220), UI_PL_NEXT);
+    CHECK_INT(pl_hit(skin, 174, 220), UI_PL_OPEN);
+    CHECK_INT(pl_hit(skin, 183, 220), UI_NONE);
+    CHECK_INT(pl_hit(skin, 270, 228), UI_PL_RESIZE);
+    CHECK_INT(pl_hit(skin, 264, 210), UI_PL_JUMP);      /* the magnifier, right of LIST */
+    CHECK_INT(pl_hit(skin, 258, 225), UI_NONE);         /* below it, left of the grip */
+    {
+        /* A classic playlist has no magnifier, and its larger resize corner. */
+        Skin classic = *skin;
+
+        classic.builtin[SKIN_PLEDIT] = 0;
+        CHECK_INT(pl_hit(&classic, 264, 207), UI_NONE);
+        CHECK_INT(pl_hit(&classic, 258, 225), UI_PL_RESIZE);
+    }
     CHECK_INT(pl_visible_rows(), 17);
     CHECK_INT(pl_row_at(22), 0);
     CHECK_INT(pl_row_at(45), 2);

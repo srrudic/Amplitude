@@ -19,6 +19,9 @@
 #define MINI_W    9         /* one small transport control */
 #define MINI_H    9
 #define GRIP_SIZE 20        /* resize area in the bottom right corner */
+#define GRIP_SIZE_BUILTIN 12    /* smaller in the built-in look, to leave room for the magnifier above it */
+#define JUMP_BUTTON_W 16
+#define JUMP_BUTTON_X (pl_w - 19)   /* between LIST and the right edge */
 
 /* Current window size; everything else is derived from it. */
 static int pl_w = PL_MIN_W, pl_h = 232;
@@ -58,8 +61,10 @@ int pl_row_at(int y)
     return (y - LIST_Y - 2) / ROW_H;
 }
 
-int pl_hit(int x, int y)
+int pl_hit(const Skin *skin, int x, int y)
 {
+    int builtin = skin->builtin[SKIN_PLEDIT], grip = builtin ? GRIP_SIZE_BUILTIN : GRIP_SIZE;
+
     if (inside(x, y, pl_w - 11, 3, 9, 9))
         return UI_PL_CLOSE;
     if (y < TOP_H)
@@ -68,8 +73,11 @@ int pl_hit(int x, int y)
         return UI_PL_LIST;
     if (inside(x, y, SCROLL_X - 2, LIST_Y, HANDLE_W + 4, LIST_H))
         return UI_PL_SCROLL;
-    if (inside(x, y, pl_w - GRIP_SIZE, pl_h - GRIP_SIZE, GRIP_SIZE, GRIP_SIZE))
+    if (inside(x, y, pl_w - grip, pl_h - grip, grip, grip))
         return UI_PL_RESIZE;
+    /* Classic skins have no picture for the magnifier, so no button either. */
+    if (builtin && inside(x, y, JUMP_BUTTON_X, BUTTON_Y, JUMP_BUTTON_W, BUTTON_H))
+        return UI_PL_JUMP;
     if (inside(x, y, PL_BUTTON_X(0), BUTTON_Y, 4 * PL_BUTTON_PITCH, BUTTON_H) &&
         (x - PL_BUTTON_X(0)) % PL_BUTTON_PITCH < BUTTON_W)
         return UI_PL_ADD + (x - PL_BUTTON_X(0)) / PL_BUTTON_PITCH;       /* ADD, REM, SEL, MISC */

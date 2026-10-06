@@ -166,8 +166,8 @@ H-22; SEL 82, H-22; MISC 111, H-22; LIST W-36, H-22; first row 100, 27, then
 previous W-143, play W-134, pause W-125, stop W-116, next W-107, open W-98.
 
 Main menu at 100% (popup window, empty title; rows are 13 high, separators
-5): Add files 8, Add folder 21, Equalizer 39, Playlist 52, Shuffle 70,
-Repeat 83, Skins 101, Size 114, Color 127, About 145, Exit 158 (all at
+5): Add files 8, Add folder 21, Jump to file 34, Equalizer 52, Playlist 65,
+Shuffle 83, Repeat 96, Skins 114, Size 127, Color 140, About 158, Exit 171 (all at
 x = 30). Submenus start with "< Back" at y 8, a separator, then entries from
 y 26 in steps of 13.
 

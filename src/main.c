@@ -122,7 +122,7 @@ enum {
     CMD_SELECT_ALL, CMD_SELECT_NONE, CMD_SELECT_INVERT,
     CMD_SORT_TITLE, CMD_SORT_FILENAME, CMD_SORT_PATH, CMD_REVERSE, CMD_RANDOMIZE,
     CMD_LIST_NEW, CMD_LIST_OPEN, CMD_LIST_SAVE, CMD_ABOUT, CMD_SKIN_LOAD,
-    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR,
+    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR, CMD_JUMP,
     CMD_SIZE_FIRST = 1500,      /* + index into size_choices */
     CMD_PRESET_FIRST = 1600,    /* + index into presets */
     CMD_COLOR_FIRST = 1700,     /* + index into theme_presets */
@@ -1356,6 +1356,7 @@ static void open_menu(int which)
     } else if (which == MENU_MAIN) {
         menu_add("Add files...", CMD_ADD_FILES, 0);
         menu_add("Add folder...", CMD_ADD_FOLDER, 0);
+        menu_add("Jump to file... (Ctrl+J)", CMD_JUMP, 0);
         menu_add(NULL, 0, 0);
         menu_add("Equalizer", CMD_EQ, wins[WIN_EQ].visible);
         menu_add("Playlist", CMD_PL, wins[WIN_PL].visible);
@@ -1555,6 +1556,11 @@ static void do_action(int element)
     case UI_JUMP_DISMISS:
         set_window_visible(WIN_JUMP, 0);
         break;
+    case UI_PL_JUMP:
+    case CMD_JUMP:
+        open_jump();
+        jump_skip_text = 0;     /* opened by the mouse: no key press to swallow */
+        break;
     case UI_JUMP_PLAY:
         jump_play_selected();
         break;
@@ -1738,7 +1744,7 @@ static int hit_test(int win, int x, int y, int *slider)
 {
     switch (win) {
     case WIN_EQ: return eq_hit(x, y, slider);
-    case WIN_PL: return pl_hit(x, y);
+    case WIN_PL: return pl_hit(&skin, x, y);
     case WIN_JUMP: return jump_hit(x, y);
     case WIN_ABOUT: return about_hit(x, y);
     default:     return ui_hit(&skin, x, y);
