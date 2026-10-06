@@ -67,7 +67,9 @@ PATH="$WORK/bin:$PATH"
 
 echo "--- start with a folder: recursive add, layout, docking"
 start --scale 1 "$WORK/music"
-drive size 0 275 116  hidden 1  hidden 2  hidden 3
+# A first run shows all three windows, docked; G and E hide and show two of them.
+drive size 0 275 116  size 1 275 116  below 0 1  size 2 275 232  below 1 2  hidden 3
+drive key 0 g 0  hidden 1  key 0 e 0  hidden 2
 drive key 0 g 0  size 1 275 116  below 0 1
 drive key 0 e 0  size 2 275 232  below 1 2
 drive mark 0  mark 2  drag 0 100 5 60 40  moved 0 60 40  moved 2 60 40  below 0 1  below 1 2
@@ -156,7 +158,7 @@ mkdir -p "$WORK/queue"
 "$MKWAV" "$WORK/queue/2 second.wav" 5 440 0
 "$MKWAV" "$WORK/queue/3 third.wav" 5 440 0
 start --scale 1 "$WORK/queue"
-drive key 0 e 0  click 2 100 47 0  key 2 q 0  wait 4500     # playlist, third row, Q; then let the first end
+drive click 2 100 47 0  key 2 q 0  wait 4500                # third row of the playlist, Q; then let the first end
 quit
 ok "the third track followed the first" setting "track=2"
 
@@ -187,7 +189,7 @@ echo "--- with shuffle on, previous returns to the track played before"
 export XDG_CONFIG_HOME="$WORK/config-back"
 INI="$XDG_CONFIG_HOME/amplitude/amplitude.ini"
 start --scale 1 "$WORK/queue"
-drive key 0 s 0  key 0 e 0  click 2 100 47 0  key 2 q 0  key 0 b 0  wait 300  key 0 z 0  wait 300
+drive key 0 s 0  click 2 100 47 0  key 2 q 0  key 0 b 0  wait 300  key 0 z 0  wait 300
 quit
 ok "previous went back to the first track" setting "track=0"
 ok "shuffle was on" setting "shuffle=1"

@@ -202,7 +202,8 @@ and look at it. "Ini" means stop the player and read the sandbox's
 ### 4.1 Start and stop
 
 - **S1** Start the 64-bit build with no arguments. Main window appears,
-  275x116 at scale 1. Shot.
+  275x116 at scale 1. Shot. (Since the first run of this plan, a start with
+  no saved layout also shows the equaliser and playlist, docked below.)
 - **S2** Close with the close button. The process exits within a second;
   `amplitude.ini` now has content; an `amplitude.m3u` exists.
 - **S3** The same for the 32-bit build.

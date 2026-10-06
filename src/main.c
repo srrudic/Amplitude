@@ -2267,12 +2267,13 @@ int main(int argc, char **argv)
         shutdown_all();
         return 1;
     }
-    if (config.has_layout) {
-        if (config.eq_visible)
-            set_window_visible(WIN_EQ, 1);
-        if (config.pl_visible)
-            set_window_visible(WIN_PL, 1);
-    }
+    /* The equaliser and playlist come back as they were left. On the very
+     * first run there is nothing saved, and both are shown, so that a new
+     * user sees the whole player and not just its smallest part. */
+    if (!config.has_layout || config.eq_visible)
+        set_window_visible(WIN_EQ, 1);
+    if (!config.has_layout || config.pl_visible)
+        set_window_visible(WIN_PL, 1);
     /* The playlist is read next, and with a long list on a disk that has
      * not been read yet that takes time too. The windows get their picture
      * first, and keep_alive() looks after them while the list is read. */
