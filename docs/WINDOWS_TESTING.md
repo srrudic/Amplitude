@@ -499,7 +499,7 @@ change.
 | W2 | pass | Right click at 150, 50: menu's corner exactly there. Cog: menu under it. A click outside closes it, both times. |
 | W3 | pass | Done by script, since the machine has two monitors (layout set in the ini). Player on the second monitor: both menus open there, also at its right edge and its bottom. Player at the bottom of either monitor: the menu is moved up to end exactly at the work area (1008 on the primary), clear of the taskbar. |
 | W4 | pass | ADD, REM, SEL, MISC, LIST each open their menu directly above the button row. |
-| W5 | pass, link not run | About shows "Version 0.1.0", the author and the link; Escape closes it. Clicking the link needs the user. |
+| W5 | pass, link not run | About shows "Version 0.1.1", the author and the link; Escape closes it. Clicking the link needs the user. |
 | W6 | pass | J opens the window with an empty box (posted and real key press); "tone" narrows 15 tracks to "15. long-tone"; Enter plays it and closes the window. |
 | W7 | pass | Minimise: only the minimised main window is left; restore brings all three back where they were. |
 | L1 | pass | All, none, invert (one row left out). |
