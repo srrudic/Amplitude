@@ -510,8 +510,7 @@ as the repository root (the Makefile at the top level).
 Windows targets, the installers and the packages on GitHub's Ubuntu
 machines, runs the unit tests, and keeps `build/dist/` from each run as a
 downloadable artifact. A second job runs the end-to-end GUI test under a
-virtual display; it is marked "may fail" until it has been seen to work
-there. The audio test runs with `AUDIO_TEST_ENV=ASAN_OPTIONS=detect_leaks=0`
+virtual display with a small window manager. The audio test runs with `AUDIO_TEST_ENV=ASAN_OPTIONS=detect_leaks=0`
 because the build machine has no sound server (see the Makefile).
 
 **The website** (`.github/workflows/pages.yml`) is the `website/` folder,
