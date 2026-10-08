@@ -520,6 +520,13 @@ disc image, so what remains to be seen is the drive itself.
   a few seconds. With "Look up CD track names" unticked in the MISC menu
   (and after a restart, still unticked) they stay as they are. With the
   network cable out, nothing hangs.
+- **C13** CD-Text: a disc that has it (many albums from the late 1990s
+  on, above all Sony's, and discs burned with titles entered) shows its
+  names with "Look up CD names online" unticked and the network
+  unplugged. Windows XP and later, and Windows 98 through ASPI; not
+  expected to work on Windows 2000. A disc without CD-Text, or a drive
+  that cannot read it, must simply keep "CD Track NN" with no delay
+  worth noticing.
 - **C10** A disc image: drop a `.cue` with one `.bin` on the player.
 
 ## 5. What only the user can check

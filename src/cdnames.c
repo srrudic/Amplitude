@@ -471,6 +471,7 @@ static volatile int ready;          /* `found` holds a result nobody has taken *
 static char asked_device[CD_DEVICE_MAX];
 static unsigned long asked_id;      /* the disc last looked up, so as not to ask twice */
 static time_t asked_at;
+static int asked_online;            /* may the internet be asked? */
 static CdNames found;               /* kept, to answer at once when asked for the same disc again */
 static int found_any;
 
@@ -485,7 +486,8 @@ static void lookup(void *arg)
     if (cd && (id != asked_id || (!found_any && time(NULL) - asked_at > RETRY_SECONDS))) {
         asked_id = id;
         asked_at = time(NULL);
-        found_any = ask_musicbrainz(cd_toc(cd), &found) || ask_gnudb(cd_toc(cd), &found);
+        found_any = cd_read_names(cd, &found) ||
+                    (asked_online && (ask_musicbrainz(cd_toc(cd), &found) || ask_gnudb(cd_toc(cd), &found)));
     }
     if (cd && found_any) {
         snprintf(found.device, sizeof found.device, "%s", asked_device);
@@ -496,11 +498,12 @@ static void lookup(void *arg)
     busy = 0;
 }
 
-void cd_names_request(const char *device)
+void cd_names_request(const char *device, int online)
 {
     if (busy || ready)
         return;
     busy = 1;
+    asked_online = online;
     snprintf(asked_device, sizeof asked_device, "%s", device);
     if (!plat_thread_start(lookup, NULL))
         busy = 0;

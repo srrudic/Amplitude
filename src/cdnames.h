@@ -1,4 +1,5 @@
-/* The names of the songs on an audio CD, looked up on the internet.
+/* The names of the songs on an audio CD: from the disc itself where it
+ * carries them, and otherwise looked up on the internet.
  *
  * A disc says nothing about itself but where its tracks begin, and that is
  * what identifies it: from those positions a "disc ID" is worked out and
@@ -16,20 +17,11 @@
 
 #include "cd.h"
 
-typedef struct {
-    char device[CD_DEVICE_MAX];     /* the disc these names are for */
-    char artist[128], album[160];
-    int count;
-    struct {
-        int number;                 /* as on the disc */
-        char artist[128];           /* empty when it is the album's */
-        char title[200];
-    } track[CD_MAX_TRACKS];
-} CdNames;
-
-/* Starts looking up the disc in `device` (a drive or a CUE sheet), unless
- * that very disc was looked up last or a lookup is under way. */
-void cd_names_request(const char *device);
+/* Starts finding names for the disc in `device` (a drive or a CUE sheet),
+ * unless that very disc was looked up last or a lookup is under way. What
+ * the disc says of itself (see cd_read_names) comes first; the internet is
+ * asked only if that is nothing and `online` allows it. */
+void cd_names_request(const char *device, int online);
 /* Returns 1, once, when names have been found, and fills `out`. */
 int  cd_names_take(CdNames *out);
 

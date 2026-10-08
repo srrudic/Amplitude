@@ -416,8 +416,11 @@ the source is to that format.
   device the path may name a CUE sheet with one raw `.bin` file; `cd.c`
   reads those itself. That is a small feature in its own right, and it is
   how everything but the two drive files is tested without a drive
-  (`tests/test_cd.c` makes such an image). **`cdnames.c`** looks the
-  song names up on a thread of its own: it works out the disc IDs from the
+  (`tests/test_cd.c` makes such an image). **`cdnames.c`** finds the
+  song names on a thread of its own. First it asks the disc
+  (`cd_read_names`: CD-Text, fetched from the drive with one more command
+  on each platform and decoded by `cd_text_parse`; or the TITLE and
+  PERFORMER lines of an image's sheet). Failing that it works out the disc IDs from the
   track positions and asks MusicBrainz (JSON, read by a few small `js_*`
   functions) and then gnudb (the old CDDB protocol over HTTP). gnudb only
   answers programs whose author has registered an e-mail address, which

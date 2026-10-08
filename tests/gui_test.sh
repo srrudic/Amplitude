@@ -240,7 +240,7 @@ M3U="$XDG_CONFIG_HOME/amplitude/amplitude.m3u"
 mkdir -p "$WORK/cd" "$XDG_CONFIG_HOME/amplitude"
 printf 'cd_names=0\n' > "$INI"     # no asking the internet what this disc is
 head -c $((2352 * 300)) /dev/zero > "$WORK/cd/disc.bin"
-printf 'FILE "disc.bin" BINARY\n TRACK 01 AUDIO\n  INDEX 01 00:00:00\n TRACK 02 AUDIO\n  INDEX 01 00:02:00\n' > "$WORK/cd/disc.cue"
+printf 'PERFORMER "Band"\nFILE "disc.bin" BINARY\n TRACK 01 AUDIO\n  TITLE "Named on the Disc"\n  INDEX 01 00:00:00\n TRACK 02 AUDIO\n  INDEX 01 00:02:00\n' > "$WORK/cd/disc.cue"
 start --scale 1 "$WORK/cd/disc.cue"
 sleep 1
 quit

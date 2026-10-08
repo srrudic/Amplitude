@@ -109,6 +109,29 @@ int plat_cd_read(PlatCd *cd, long sector, int count, void *out)
     return ioctl(cd->fd, CDROMREADAUDIO, &request) == 0;
 }
 
+int plat_cd_text(PlatCd *cd, unsigned char *out, int size)
+{
+    struct cdrom_generic_command command;
+    struct request_sense sense;
+
+    /* The drive's own command for reading the table of contents, in the
+     * form (5) that asks for CD-Text. */
+    memset(&command, 0, sizeof command);
+    memset(&sense, 0, sizeof sense);
+    memset(out, 0, (size_t)size);
+    command.cmd[0] = GPCMD_READ_TOC_PMA_ATIP;
+    command.cmd[2] = 5;
+    command.cmd[7] = (unsigned char)(size >> 8);
+    command.cmd[8] = (unsigned char)size;
+    command.buffer = out;
+    command.buflen = (unsigned)size;
+    command.sense = &sense;
+    command.data_direction = CGC_DATA_READ;
+    command.quiet = 1;
+    command.timeout = 10 * 100;
+    return ioctl(cd->fd, CDROM_SEND_PACKET, &command) == 0;
+}
+
 void plat_cd_close(PlatCd *cd)
 {
     close(cd->fd);

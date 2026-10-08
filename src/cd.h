@@ -40,6 +40,27 @@ const CdToc *cd_toc(const Cd *cd);
 int  cd_read(Cd *cd, long sector, int count, void *out);
 void cd_close(Cd *cd);
 
+/* Names of the album and its songs. */
+typedef struct {
+    char device[CD_DEVICE_MAX];     /* the disc these names are for */
+    char artist[128], album[160];
+    int count;
+    struct {
+        int number;                 /* as on the disc */
+        char artist[128];           /* empty when it is the album's */
+        char title[200];
+    } track[CD_MAX_TRACKS];
+} CdNames;
+
+/* The names a disc carries itself: "CD-Text", which some pressed albums and
+ * many home-made discs have and which most but not all drives can read; for
+ * an image, the TITLE and PERFORMER lines of its CUE sheet. Returns 0 if
+ * there are none. `out->device` is left to the caller. */
+int  cd_read_names(Cd *cd, CdNames *out);
+/* Decodes CD-Text as the drive delivers it, less the four bytes in front:
+ * "packs" of 18 bytes. Exposed for the tests. */
+int  cd_text_parse(const unsigned char *packs, size_t size, const CdToc *toc, CdNames *out);
+
 /* The first drive that holds an audio disc. Returns 0 if none does. */
 int  cd_find_disc(char *device, size_t size);
 
@@ -61,6 +82,10 @@ int     plat_cd_drives(char names[][PLAT_CD_NAME], int max);
 PlatCd *plat_cd_open(const char *device);
 int     plat_cd_toc(PlatCd *cd, CdToc *toc);
 int     plat_cd_read(PlatCd *cd, long sector, int count, void *out);
+/* Asks the drive for the disc's CD-Text: the first `size` bytes of its
+ * answer, which begins with its own length (two bytes, not counting
+ * themselves) and two more bytes. Returns 1 if the drive answered. */
+int     plat_cd_text(PlatCd *cd, unsigned char *out, int size);
 void    plat_cd_close(PlatCd *cd);
 
 #endif

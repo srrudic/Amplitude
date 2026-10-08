@@ -38,9 +38,11 @@ static void make_disc(void)
     test_write(test_path("disc.bin"), sound, sizeof sound);
     snprintf(sheet, sizeof sheet,
              "REM made for the test\r\n"
+             "PERFORMER \"The Testers\"\r\nTITLE \"Caf\xE9 Album\"\r\n"
              "FILE \"disc.bin\" BINARY\r\n"
-             "  TRACK 01 AUDIO\r\n    INDEX 01 00:00:00\r\n"
-             "  TRACK 02 AUDIO\r\n    INDEX 00 00:02:50\r\n    INDEX 01 00:03:00\r\n"
+             "  TRACK 01 AUDIO\r\n    TITLE \"Opening\"\r\n    PERFORMER \"The Testers\"\r\n    INDEX 01 00:00:00\r\n"
+             "  TRACK 02 AUDIO\r\n    TITLE \"Duet\"\r\n    PERFORMER \"A Guest\"\r\n"
+             "    INDEX 00 00:02:50\r\n    INDEX 01 00:03:00\r\n"
              "  TRACK 03 MODE1/2352\r\n    INDEX 01 00:05:00\r\n"
              "  TRACK 04 AUDIO\r\n    INDEX 01 00:05:20\r\n");
     test_write(test_path("disc.cue"), sheet, strlen(sheet));
@@ -157,6 +159,92 @@ static void test_codec(void)
     CHECK(!codec_open("cdda:///dev/null/1", &codec));
 }
 
+/* Lays texts out as CD-Text packs of one kind: the album's first, then
+ * each track's, twelve characters to a pack. Returns the bytes written. */
+static size_t text_packs(unsigned char *out, int kind, int block, const char *const *texts, int count)
+{
+    unsigned char *pack = NULL;
+    size_t size = 0;
+    int used = 12, i;
+    const char *c;
+
+    for (i = 0; i < count; i++)
+        for (c = texts[i];; c++) {
+            if (used == 12) {
+                pack = out + size;
+                memset(pack, 0, 18);
+                pack[0] = (unsigned char)kind;
+                pack[1] = (unsigned char)i;
+                pack[2] = (unsigned char)(size / 18);
+                pack[3] = (unsigned char)(block << 4);
+                size += 18;
+                used = 0;
+            }
+            pack[4 + used++] = (unsigned char)*c;
+            if (!*c)
+                break;
+        }
+    return size;
+}
+
+/* What a disc says of itself: CD-Text, and the titles in an image's sheet. */
+static void test_disc_names(void)
+{
+    static const char *const titles[] = { "An Album With a Long Name", "First Song of Them", "Caf\xE9", "\t", "Last" };
+    static const char *const artists[] = { "The Band", "The Band", "\t", "Somebody Else", "" };
+    static const char *const other[] = { "Ein Album", "Erstes", "Zweites", "Drittes", "Viertes" };
+    static const char *const genre[] = { "Not a title" };
+    static CdNames names;
+    unsigned char packs[2048];
+    size_t size = 0;
+    CdToc toc;
+    Cd *cd;
+    int i;
+
+    memset(&toc, 0, sizeof toc);
+    toc.count = 5;                      /* four songs and a data track */
+    for (i = 0; i < 5; i++) {
+        toc.track[i].number = i + 1;
+        toc.track[i].audio = i < 4;
+    }
+    size += text_packs(packs + size, 0x80, 0, titles, 5);
+    size += text_packs(packs + size, 0x81, 0, artists, 5);
+    size += text_packs(packs + size, 0x87, 0, genre, 1);
+    size += text_packs(packs + size, 0x80, 1, other, 5);        /* a second language: not used */
+    CHECK(cd_text_parse(packs, size, &toc, &names));
+    CHECK_STR(names.album, "An Album With a Long Name");
+    CHECK_STR(names.artist, "The Band");
+    CHECK_INT(names.count, 4);
+    CHECK_STR(names.track[0].title, "First Song of Them");
+    CHECK_STR(names.track[0].artist, "");                       /* the album's */
+    CHECK_STR(names.track[1].title, "Caf\xC3\xA9");
+    CHECK_STR(names.track[1].artist, "");                       /* "as before" */
+    CHECK_STR(names.track[2].title, "Caf\xC3\xA9");             /* "as before" */
+    CHECK_STR(names.track[2].artist, "Somebody Else");
+    CHECK_INT(names.track[3].number, 4);
+    CHECK_STR(names.track[3].title, "Last");
+    CHECK(!cd_text_parse(packs, 0, &toc, &names));
+    CHECK(!cd_text_parse(packs + 18 * 12, 18, &toc, &names));   /* a scrap with no track title in it */
+    packs[3] |= 0x80;
+    size = text_packs(packs, 0x80, 0, titles, 5);
+    for (i = 0; (size_t)i < size; i += 18)
+        packs[i + 3] |= 0x80;                                   /* two-byte characters: not read */
+    CHECK(!cd_text_parse(packs, size, &toc, &names));
+
+    cd = cd_open(test_path("disc.cue"));
+    CHECK(cd != NULL && cd_read_names(cd, &names));
+    CHECK_STR(names.artist, "The Testers");
+    CHECK_STR(names.album, "Caf\xC3\xA9 Album");
+    CHECK_INT(names.count, 2);                                  /* tracks 3 and 4 have no title */
+    CHECK_STR(names.track[0].title, "Opening");
+    CHECK_STR(names.track[0].artist, "");
+    CHECK_INT(names.track[1].number, 2);
+    CHECK_STR(names.track[1].title, "Duet");
+    CHECK_STR(names.track[1].artist, "A Guest");
+    if (cd)
+        cd_close(cd);
+}
+
 /* Looking names up, without the looking: the IDs a disc is known by, and
  * reading what the two databases answer. */
 static void test_names(void)
@@ -264,6 +352,7 @@ int main(void)
     make_disc();
     test_toc();
     test_codec();
+    test_disc_names();
     test_names();
     test_playback();
     usleep(200 * 1000);     /* let the reader threads finish, so nothing looks leaked */

@@ -20,6 +20,8 @@
 /* From ntddcdrm.h, which not every toolchain has. */
 #define CD_IOCTL_READ_TOC   0x00024000
 #define CD_IOCTL_RAW_READ   0x0002403E
+#define CD_IOCTL_READ_TOC_EX 0x00024054     /* Windows XP and later */
+#define CD_TOC_FORMAT_TEXT  5
 #define CD_RAW_MODE_AUDIO   2
 #define CD_DATA_TRACK       0x04
 #define CD_MSF_OFFSET       150         /* the two seconds before sector 0 */
@@ -274,6 +276,24 @@ int plat_cd_read(PlatCd *cd, long sector, int count, void *out)
     request.mode = CD_RAW_MODE_AUDIO;
     return DeviceIoControl(cd->drive, CD_IOCTL_RAW_READ, &request, sizeof request, out, (DWORD)count * CD_SECTOR,
                            &got, NULL) && got == (DWORD)count * CD_SECTOR;
+}
+
+int plat_cd_text(PlatCd *cd, unsigned char *out, int size)
+{
+    DWORD got = 0;
+
+    memset(out, 0, (size_t)size);
+    if (uses_aspi(cd)) {
+        BYTE cdb[10] = { SCSI_READ_TOC, 0, CD_TOC_FORMAT_TEXT, 0, 0, 0, 0, (BYTE)(size >> 8), (BYTE)size, 0 };
+
+        return aspi_command(cd, cdb, sizeof cdb, out, (DWORD)size);
+    } else {
+        /* Which form of the table of contents is wanted; nothing else set. */
+        BYTE request[4] = { CD_TOC_FORMAT_TEXT, 0, 0, 0 };
+
+        return DeviceIoControl(cd->drive, CD_IOCTL_READ_TOC_EX, request, sizeof request, out, (DWORD)size, &got, NULL) &&
+               got >= 4;
+    }
 }
 
 void plat_cd_close(PlatCd *cd)

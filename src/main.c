@@ -78,7 +78,7 @@ static float balance;
 static uint32_t volume_readout_until;   /* ticks until which the title display shows the volume */
 static int volume_readout;
 static int shuffle, repeat;
-static int cd_names_on;             /* look CD track names up on the internet */
+static int cd_names_on;             /* look CD track names up on the internet when the disc has none */
 static int vis_mode;
 static int queued_index = -1;       /* track prepared for a gapless hand-over */
 /* The tracks played before the current one, oldest first, so that with
@@ -519,9 +519,8 @@ static void track_started(int index)
 
         track_kbps = CD_RATE * 2 * 16 / 1000;       /* always the same on a CD */
         /* Still nameless (a playlist from an earlier run, say): ask. */
-        if (cd_names_on && strncmp(track->title, "CD Track ", 9) == 0 &&
-            cd_split_path(track->path, device, sizeof device, &number))
-            cd_names_request(device);
+        if (strncmp(track->title, "CD Track ", 9) == 0 && cd_split_path(track->path, device, sizeof device, &number))
+            cd_names_request(device, cd_names_on);
     }
     else if (length > 0)
         track_kbps = (int)((double)file_size(track->path) * 8.0 / length / 1000.0 + 0.5);
@@ -882,8 +881,8 @@ static int add_cd(const char *device)
     }
     cd_close(cd);
     queue_dirty = 1;
-    if (cd_names_on && first >= 0)
-        cd_names_request(device);       /* the names follow when they are found */
+    if (first >= 0)
+        cd_names_request(device, cd_names_on);      /* the names follow when they are found */
     return first;
 }
 
@@ -1539,7 +1538,7 @@ static void open_menu(int which)
         menu_add("Queue selected to play next", CMD_QUEUE_SELECTED, 0);
         menu_add("Clear queue", CMD_QUEUE_CLEAR, 0);
         menu_add(NULL, 0, 0);
-        menu_add("Look up CD track names", CMD_CD_NAMES, cd_names_on);
+        menu_add("Look up CD names online", CMD_CD_NAMES, cd_names_on);
     } else if (which == MENU_LIST) {
         menu_add("New list", CMD_LIST_NEW, 0);
         menu_add("Open list...", CMD_LIST_OPEN, 0);
