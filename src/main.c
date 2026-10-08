@@ -2507,10 +2507,9 @@ int main(int argc, char **argv)
             free_paths(paths, path_count);
             return 0;
         } else {
-            /* Resolved now, while relative paths still mean what the user meant. */
             char full[2048];
 
-            if (!plat_absolute_path(argv[i], full, sizeof full))
+            if (path_is_url(argv[i]) || path_is_cd(argv[i]) || !plat_absolute_path(argv[i], full, sizeof full))
                 snprintf(full, sizeof full, "%s", argv[i]);
             paths[path_count] = malloc(strlen(full) + 1);
             if (paths[path_count])

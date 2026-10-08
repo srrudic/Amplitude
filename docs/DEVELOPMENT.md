@@ -35,15 +35,20 @@ Working and tested on Linux:
 - Drag and drop, folder adding, single instance, saved settings and playlist
 - `.deb` package with icon and desktop entry
 
-**Windows 11 has been tested once**, on 4 October 2026, by script: start-up,
+**Windows 11 has been tested twice**, by script. On 4 October 2026: start-up,
 Unicode file names, every format, drawing at four sizes, menus on two
 monitors, playlist commands, settings, single instance, CPU and handle use
-all passed with no change to the player. `docs/WINDOWS_TESTING.md` holds the
-plan and the results. Not yet covered there: the installers, the file
-dialogs and drag and drop, a real classic skin, sound judged by ear, and the
-release executables themselves (the test used a build made on Windows with
-another compiler). **Windows XP and 98 have not been tested**; that is the
-most valuable next step. Section 12 lists what is missing.
+all passed with no change to the player. On 8 October 2026, for 0.2.0:
+several files opened at once, media keys, streams of every kind over
+Winsock and WinINet, the Open location window, and CDs as far as a disc
+image goes; one fault was found and fixed (a web address given on the
+command line was turned into a file path). `docs/WINDOWS_TESTING.md` holds
+the plan and the results. Not yet covered there: a real CD in a drive, the
+installers, the file dialogs and drag and drop, a real classic skin, sound
+judged by ear, and the release executables themselves (the tests used
+builds made on Windows with another compiler). **Windows XP and 98 have not
+been tested**; that is the most valuable next step. Section 12 lists what
+is missing.
 
 ## 3. Building
 

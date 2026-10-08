@@ -3,8 +3,8 @@
 #     . .\tests\windows\wintest.ps1          (dot-source it, from the project root)
 #
 # STATUS: every function here has been run on Windows 11 (24H2, PowerShell 7,
-# 150% display scaling) while working through the test document; see its
-# section 6 for what had to be changed.
+# 150% display scaling) while working through the test document, twice; see
+# its section 6 for what had to be changed and added.
 #
 # The player is always started from a scratch copy with an amplitude.ini next
 # to it. That makes it "portable": settings and playlist are read and written
@@ -33,6 +33,13 @@ public static class AmpWin {
     [DllImport("user32.dll")] public static extern uint GetGuiResources(IntPtr process, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Ansi)] public static extern IntPtr FindWindowA(string cls, string title);
     [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint vk);
+    [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+    [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT point);
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
 
     /* Bounding box of the pixels that differ between two images of the same
        size: {left, top, right, bottom, count}; count is 0 if they are equal. */
@@ -228,14 +235,68 @@ function Send-AmpDrag([string]$Title, [int]$X1, [int]$Y1, [int]$X2, [int]$Y2, [i
 
 # A virtual-key code (0x1B Escape, 0x0D Enter, 0x2E Delete, 0x25..0x28 arrows,
 # or a capital letter's ASCII code).
-function Send-AmpKey([string]$Title, [int]$VirtualKey) {
+#
+# -Ctrl holds the real Ctrl key for the length of the press, as Send-AmpClick
+# does (Ctrl+L is 0x4C, Ctrl+V 0x56). The window has to be in front for the
+# player to see the key as down; Windows may refuse to bring it there.
+function Send-AmpKey([string]$Title, [int]$VirtualKey, [switch]$Ctrl) {
     $win = Get-AmpWindow $Title
     if (-not $win) { throw "window '$Title' not found" }
+    if ($Ctrl) {
+        [void][AmpWin]::SetForegroundWindow($win.Handle); Start-Sleep -Milliseconds 200
+        [AmpWin]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 100
+    }
     # The key-up needs its "was down, now released" bits: with a plain zero,
     # TranslateMessage in the player turns it into a second typed character.
     [void][AmpWin]::PostMessage($win.Handle, 0x0100, [IntPtr]$VirtualKey, [IntPtr]1)                    # WM_KEYDOWN
     [void][AmpWin]::PostMessage($win.Handle, 0x0101, [IntPtr]$VirtualKey, [IntPtr]::new(0xC0000001))    # WM_KEYUP
+    if ($Ctrl) { Start-Sleep -Milliseconds 100; [AmpWin]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero) }     # KEYEVENTF_KEYUP
     Start-Sleep -Milliseconds 200
+}
+
+# Brings a window of the player to the front and says whether that worked.
+# Windows refuses SetForegroundWindow from a background program at times (for
+# one, while the notification panel is open). -RealClick then clicks the real
+# mouse once on the window's title text, a place that only drags, and puts the
+# pointer back: the user sees the pointer jump, so say so beforehand.
+function Set-AmpForeground([string]$Title, [switch]$RealClick) {
+    $win = Get-AmpWindow $Title
+    if (-not $win) { throw "window '$Title' not found" }
+    [void][AmpWin]::SetForegroundWindow($win.Handle); Start-Sleep -Milliseconds 300
+    if ($RealClick -and [AmpWin]::GetForegroundWindow() -ne $win.Handle) {
+        $old = New-Object AmpWin+POINT
+        [void][AmpWin]::GetCursorPos([ref]$old)
+        [void][AmpWin]::SetCursorPos($win.X + [int](40 * $script:AmpScale / 100), $win.Y + [int](7 * $script:AmpScale / 100))
+        Start-Sleep -Milliseconds 100
+        [AmpWin]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60     # MOUSEEVENTF_LEFTDOWN
+        [AmpWin]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 150    # MOUSEEVENTF_LEFTUP
+        [void][AmpWin]::SetCursorPos($old.X, $old.Y); Start-Sleep -Milliseconds 300
+    }
+    return [AmpWin]::GetForegroundWindow() -eq $win.Handle
+}
+
+# Media keys: 0xB3 play/pause, 0xB2 stop, 0xB0 next, 0xB1 previous.
+#
+# Whether somebody holds all four as hot keys: with the test player running
+# and nothing held before it started, that somebody is the player.
+function Test-AmpMediaKeys {
+    foreach ($vk in 0xB3, 0xB2, 0xB0, 0xB1) {
+        if ([AmpWin]::RegisterHotKey([IntPtr]::Zero, 77, 0, $vk)) {
+            [void][AmpWin]::UnregisterHotKey([IntPtr]::Zero, 77)
+            return $false
+        }
+    }
+    return $true
+}
+
+# Presses the real key, for the whole system. It refuses unless the keys are
+# held (Test-AmpMediaKeys): a press nobody holds goes to whatever other
+# player the user has, and may start it playing aloud.
+function Send-AmpMediaKey([int]$VirtualKey) {
+    if (-not (Test-AmpMediaKeys)) { throw "the media keys are not held as hot keys: not pressing" }
+    [AmpWin]::keybd_event([byte]$VirtualKey, 0, 1, [UIntPtr]::Zero)      # KEYEVENTF_EXTENDEDKEY
+    [AmpWin]::keybd_event([byte]$VirtualKey, 0, 3, [UIntPtr]::Zero)      # ... | KEYEVENTF_KEYUP
+    Start-Sleep -Milliseconds 900
 }
 
 function Send-AmpText([string]$Title, [string]$Text) {

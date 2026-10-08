@@ -16,6 +16,10 @@ the Windows build") and the part of section 5 about windows and models.
 
 ## 0. The second run: what is new in 0.2.0
 
+**Done on 8 October 2026; the results are in section 6 under "Second run".**
+One fault was found and fixed (a web address on the command line did not
+play). What follows is the brief that run worked from.
+
 The first run (section 6) tested commit 310c27d. Since then the player has
 gained a good deal, all of it written and tested on Linux and, as far as
 Windows goes, **only compiled**:
@@ -118,7 +122,7 @@ preference:
    (`i686-w64-mingw32-gcc`, `x86_64-w64-mingw32-gcc`); these can be
    overridden with `WIN_CC=`, `WIN_WINDRES=`, `WIN64_CC=`, `WIN64_WINDRES=`.
    If this route is needed, write down what it took in section 6.
-3. **w64devkit** (used for the first run of this plan; needs nothing
+3. **w64devkit** (used for both runs of this plan; needs nothing
    installed). Unpack the x64 and x86 releases of
    https://github.com/skeeto/w64devkit into `.toolchain\w64-x64` and
    `.toolchain\w64-x86`. Each holds `gcc`, `windres`, `objdump`, `make` and a
@@ -151,9 +155,11 @@ added to it (section 6). Start with the same check:
     Save-AmpShot "Amplitude" "$env:TEMP\amp-main.png"
     Stop-Amp
 
-Look at the PNG with the Read tool. Expected: one visible window titled
-"Amplitude" of 275x116, four hidden ones, and a screenshot showing the main
-window in light blue on dark with "AMPLITUDE" in the title bar.
+Look at the PNG with the Read tool. Expected: a visible window titled
+"Amplitude" of 275x116 with the equaliser and the playlist visible below it
+(since 0.2.0 a first start shows all three), three hidden ones, and a
+screenshot showing the main window in light blue on dark with "AMPLITUDE"
+in the title bar.
 
 What else the helper has, and what to know when using it:
 
@@ -175,6 +181,20 @@ What else the helper has, and what to know when using it:
 - `New-AmpSandbox -Keep` keeps the settings and playlist of the last run;
   `Start-Amp -Scale 0` passes no `--scale`. A layout written into the ini by
   hand is only used together with `has_layout=1`.
+- **Ctrl with a key**: `Send-AmpKey "Amplitude" 0x4C -Ctrl` is Ctrl+L, and
+  0x56 in the Open location window is Ctrl+V. Like `-Ctrl` on a click it
+  needs the window in front.
+- **Getting a window in front** is not always allowed: while the
+  notification panel was open, Windows refused every polite request.
+  `Set-AmpForeground "Amplitude"` says whether it worked; with `-RealClick`
+  it falls back to one click of the real mouse on the title text.
+- **Media keys**: `Test-AmpMediaKeys` says whether the four keys are held
+  as hot keys (check that it is false before the player starts and true
+  after). `Send-AmpMediaKey 0xB3` presses the real key and refuses when
+  nobody holds it, so that it cannot start some other player.
+- **The menu needs a moment.** Right after the click on the cog there is no
+  menu window yet; with `-Wait` under about 150 ms the next call does not
+  find it.
 
 Things that may need fixing in the helper:
 
@@ -220,7 +240,8 @@ Main menu at 100% (popup window, empty title; rows are 13 high, separators
 Equalizer 78, Playlist 91, Shuffle 109, Repeat 122, Skins 140, Size 153, Color 166,
 About 184, Exit 197 (all at
 x = 30). Submenus start with "< Back" at y 8, a separator, then entries from
-y 26 in steps of 13.
+y 26 in steps of 13. "Size...": Automatic 26, 100% 39, 125% 52, 150% 65,
+175% 78, 200% 91, 250% 104, 300% 117, 400% 130.
 
 ### 3.4 Test files
 
@@ -455,7 +476,7 @@ For each of `amplitude-<version>-win32-setup.exe` and `-win64-setup.exe`:
 - **R5** Leave it playing a long list on repeat for 30 minutes; memory and
   handle counts at the end are close to those after the first minute.
 
-### 4.12 Opening several files at once *(added after the first run; not yet run)*
+### 4.12 Opening several files at once *(added after the first run)*
 
 Explorer opens a selection by starting the program once per file. Two
 things were added for that: starts arriving within a second of each other
@@ -477,7 +498,7 @@ the player, the others waiting up to three seconds for its window.
   has a window (hard to arrange; note if not done). The second must not
   hang for more than three seconds.
 
-### 4.13 Media keys *(added later; not yet run)*
+### 4.13 Media keys *(added later)*
 
 The main window registers the play/pause, stop, next and previous keys as
 system-wide hot keys, and also answers `WM_APPCOMMAND`.
@@ -492,15 +513,18 @@ system-wide hot keys, and also answers `WM_APPCOMMAND`.
 - **H5** With another player running that also wants the keys, note which
   one gets them; Amplitude must start and run normally either way.
 
-### 4.14 Streams *(added later; not yet run on Windows)*
+### 4.14 Streams *(added later)*
 
-`src/net_win32.c` is new and has only been compiled: Winsock for plain
-addresses, WinINet for secure ones, both loaded when the first stream opens.
+`src/net_win32.c` is new: Winsock for plain addresses, WinINet for secure
+ones, both loaded when the first stream opens.
 
 **Scripted, with the local test station.** `tests/stream_server.py` is a
 small web server with a station of every kind, on 127.0.0.1 only. It needs
-Python 3 on Windows (`py -3 --version`; if there is none, say so and go on
-to the real stations). Start it in a window of its own, to live an hour:
+Python 3 on Windows (`py -3 --version`). If there is none, nothing has to
+be installed: the "Windows embeddable package" from python.org is a zip,
+and the script needs only what is in it; the second run unpacked it into
+`.toolchain\python` and used `.toolchain\python\python.exe` in place of
+`py -3`. Start it in a window of its own, to live an hour:
 
     $env:STREAM_SERVER_SECONDS = 3600
     py -3 tests\stream_server.py 18700 tests\media\sfx.mp3 tests\media
@@ -538,15 +562,16 @@ segments), `/file.mp3` (a file), `/nothing` (404) and `/hls/key.m3u8`
   Enter (`Send-AmpKey "Open location" 0x0D`) closes the window, adds
   `http://127.0.0.1:18700/radio` to the playlist and plays it. Escape
   closes the window without adding anything. (Ctrl+L and Ctrl+V need the
-  real Ctrl key, which the helper only holds during clicks: either extend
-  `Send-AmpKey` with a `-Ctrl` switch in the way `Send-AmpClick` has one,
-  or leave them to T2.)
+  real Ctrl key: `Send-AmpKey -Ctrl`, see T2.)
 
 **With the internet** (muted; a shot shows whether it plays):
 
 - **T1** S5 again: the executables still import only the six system DLLs.
 - **T2** Open location (Ctrl+L): the window opens, typing and Backspace
   work, Ctrl+V pastes an address from the clipboard, Escape closes it.
+  By script: `Send-AmpKey "Amplitude" 0x4C -Ctrl`, then, with the user's
+  clipboard text saved and put back afterwards, `Set-Clipboard` and
+  `Send-AmpKey "Open location" 0x56 -Ctrl`.
 - **T3** A plain station, `http://ice1.somafm.com/groovesalad-128-mp3`:
   "Buffering..." and then sound within a few seconds; the playlist entry
   becomes the station's name; the title display shows the current song;
@@ -582,11 +607,12 @@ segments), `/file.mp3` (a file), `/nothing` (404) and `/hls/key.m3u8`
 - **T9** *(XP, by hand)* T3 should work there too; T4 probably will not,
   because XP's encryption is too old for most servers. Note what is shown.
 
-### 4.15 Audio CDs *(added later; needs a drive and a disc; not yet run anywhere)*
+### 4.15 Audio CDs *(added later; needs a drive and a disc; C1 to C9 and C11 to C13 not yet run anywhere)*
 
 `src/cd_win32.c` (and `src/cd_linux.c`) have only been compiled: no machine
-they were written on had a drive. Everything above them is tested with a
-disc image, so what remains to be seen is the drive itself.
+they were written on had a drive, and neither had the Windows 11 machine of
+the second run. Everything above them is tested with a disc image (C10 and
+C14, which have been run), so what remains to be seen is the drive itself.
 
 - **C1** With an audio CD in the drive, "Play audio CD" in the menu: the
   playlist gains one "CD Track NN" entry per track with the right lengths
@@ -672,11 +698,11 @@ disc image, so what remains to be seen is the drive itself.
 
 ## 5. What only the user can check
 
-For the second run: M-tests of 4.13 with a real media key; T2 (Ctrl+L,
-Ctrl+V); listening to one station of each kind (T3, T6a, T6b, T6c) and
-across a change of song on an Ogg station; T7 (network unplugged); and
-all of 4.15 except C10 and C14, which needs an audio CD in a drive (C1 to
-C9, C12, C13), and a Windows 98 machine for C11.
+Left over from the second run: a real media key on the keyboard and a
+headset's buttons (H4); listening to one station of each kind (T3, T6a,
+T6b, T6c) and across a change of song on an Ogg station; T7 (network
+unplugged); and all of 4.15 except C10 and C14, which needs an audio CD
+in a drive (C1 to C9, C12, C13), and a Windows 98 machine for C11.
 
 Collected from above, for one sitting: U6 (dialogs, drag and drop), P6
 (sound quality), P7 (no audio device), W3 (second monitor), W5 (link opens),
@@ -846,3 +872,138 @@ As first noted:
   was clicked to 67% while the 441 Hz tone played, for about a second,
   before the player was stopped. Rule 3 was broken there; the test should
   set the volume in the ini instead.
+
+### Second run, 8 October 2026
+
+By a Claude Code session on the same machine, for version 0.2.0, following
+section 0.
+
+Environment: Windows 11 Home 24H2 (10.0.26100), PowerShell 7.6.6, the same
+two monitors (primary 1920x1080 at 150%). No WSL, no Python, no CD drive.
+Commit tested: 850fba7, and from T0a on with the fix described below.
+Executables built here with w64devkit 2.10.0 (GCC 16.2.0, section 3.1
+route 3), with no warnings in our own sources: `build\win32\amplitude.exe`
+1,065,472 bytes and `build\win64\amplitude.exe` 1,307,648 bytes. **These
+are again not the release executables.** The test station ran on the
+embeddable Python 3.13.7 unpacked into `.toolchain\python`.
+
+All scripted tests ran on the 64-bit build at `--scale 1` unless noted,
+with `volume=0` and, except in C14, `cd_names=0`. Nothing was audible. The
+last row is a shorter pass with the 32-bit build.
+
+| Id | Result (pass / fail / not run) | Notes, fix |
+|---|---|---|
+| helper | pass | The check of section 3.2 worked as it was. Three windows are visible now (main, equaliser, playlist) and three hidden (Jump to file, About, Open location). |
+| S1 | pass | 275x116 at 100, 100, equaliser and playlist docked below. |
+| S2 | pass | Close button: gone after 134 ms, exit code 0; ini 284 bytes, empty m3u. |
+| S5 | pass | Both builds: COMDLG32, GDI32, KERNEL32, msvcrt, SHELL32, USER32 and nothing else. wsock32 and wininet show among the loaded modules only after a stream of that kind was opened; wnaspi32 never (it is asked for on Windows 9x only). |
+| About | pass | "Version 0.2.0". |
+| menu | pass | 172x206, the fourteen entries at the coordinates of section 3.3. |
+| P1 (WAV) | pass | "1411 KBPS". |
+| P4 | pass | Good, broken, good on repeat: Next goes from 1 to 3 and from 3 to 1; the broken one is never stopped at. Two broken files and nothing else: "CANNOT PLAY: broken2", stopped, 0% processor. |
+| D1 | pass | Fresh start at 200%: the stack is moved up to y = 80 and ends exactly at the work area (1008). At 300%: main and equaliser stacked, the playlist docked to the right of the main window; everything on screen. |
+| D6 | pass at 200%; see note at 300% | 100% to 200% from the menu: same process, moved up to y = 80, still docked. 200% to 300% from the menu: the stack is moved up to y = 0, but the playlist stays under the others and reaches from 696 to 1392, 384 pixels below the screen. See "Still open". |
+| jump, magnifier | pass | J and the magnifier button both open Jump to file (275x232, with JUMP, ENQUEUE and CLOSE); "tone" narrows fifteen tracks to one; Enter plays it. |
+| M1 | pass | Five copies started at once, four times: one process left each time (always the first started), the other four ended with code 0, all five files in the list, the first in the list playing. The player's own file comes third to fifth in the list: the files handed over arrive before it adds its own. |
+| M2 | pass | Three more into a playing player: all added (m6, m7, m8), m6 playing. |
+| M3 | pass | One more three seconds later: added and playing. |
+| M4 | not run | Needs the installer. |
+| M5 | not run | No way was found to hold the first copy up before it has a window. |
+| H1 | pass | The four keys were free before the player started and held while it ran (`RegisterHotKey` from the test fails with 1409). With another program in front: next 1 to 2 to 3, previous to 2, pause, resume, stop. Each press acted once. Pressed with `keybd_event`. |
+| H2 | pass | The same with the player in front: once each. Getting it in front took a real mouse click (section 3.2). |
+| H3 | pass | After 100% to 125% to 100% from the menu the keys are still held and work. After ten more changes in R4 too. Freed when the player exits. |
+| H4 | not run | Needs the user and a headset. |
+| H5 | not run | No other program held the keys. |
+| T0a | **fail, fixed, pass** | See "Fixes". After the fix: the time advances, "128 KBPS 48 KHZ", "Artist - Second Song (Test Radio)" in the title, "Test Radio" in the playlist, no knob on the seek bar; exit in 209 ms; the saved list holds the address. |
+| T0b | pass | `/old`, `/redirect`, `/station.pls`, `/radio.aac` (64 kbps, "Test Radio AAC"), `/radio.ogg` and `/radio.opus` ("Test Radio Ogg"), the four live HLS ones: all playing after 6 s, each exit under 210 ms. `/hls/vod.m3u8` and `/file.mp3` had played out and stopped by then. The Ogg stations and `/hls/video.m3u8` show "0 KBPS". |
+| T0c | pass, with one difference | Fifteen addresses on repeat, Next twenty times: never hung, never died; handles 293 to 294, threads 9 to 11, private memory 5.2 to 6.2 MB; exit 159 ms right after a Next. The difference: Next onto `/nothing` or `/hls/key.m3u8` shows "CANNOT PLAY" and **stays there**; it is not passed over as a broken file is. See "Still open". |
+| T0d | pass | When `/hls/vod.m3u8` ends the WAV after it starts by itself. |
+| T0e | pass | Server killed while `/radio` played: the player went on for about 23 s on what it had, then moved to the next track. Responding throughout. |
+| T0f | pass | "Open location" 275x76; typing and Backspace work; Escape closes it and adds nothing; Enter closes it, adds `http://127.0.0.1:18700/radio` and plays. |
+| T1 | pass | As S5. |
+| T2 | pass | By script: Ctrl+L opens the window; Ctrl+V pastes `http://127.0.0.1:18700/radio.aac` from a clipboard text with spaces and a line end around it; Enter plays it. The user's clipboard text was put back. |
+| T3 | pass, not listened to | `http://ice1.somafm.com/groovesalad-128-mp3`: playing within 7 s, 128 kbps, 44 kHz, song and station in the title. Winsock. |
+| T4 | pass | The same at `https://` and `https://somafm.com/groovesalad.pls`: playing, through WinINet. |
+| T5 | pass | On the http and the https station: pause 10 s (time blinks) and resume; Stop and Play (starts again from 00:00); Next to a file and Previous back. Closed 1.5 s into a connection to an address that never answers (`http://` and `https://10.255.255.1`): exit in 191 and 185 ms. Next three times through such addresses to a file: plays the file, exit 205 ms. |
+| T6 | pass | Unknown host over http and https, `https://expired.badssl.com/`, a refused connection, a 404 on a secure site: "CANNOT PLAY" within 2 s each; Next then plays the file after it. |
+| T6a | pass, not listened to | AAC at 128 and AAC+ at 64 kbps: playing, song title shown. |
+| T6b | pass, not listened to | `https://radio.plaza.one/ogg` and `/opus`, `http://icecast.err.ee/vikerraadio.opus`: playing, titles shown. No change of song was waited for. |
+| T6c | pass | fip (280 kbps), iHeart (24), BBC World Service (transport stream, 101) and the MP4-fragment film sound: each playing after 9 s, 12 s further on 12 s later. fip for twenty minutes: see R5. |
+| T7 | not run | Needs the cable out. T0e is the same thing with the local station. |
+| T8 | 20 minutes, not an hour | See R5. |
+| T9 | not run | Windows XP. |
+| C1-C9, C12, C13 | not run | No CD drive on this machine. One part of C6 could be run: "Play audio CD" with no drive at all says "NO AUDIO CD FOUND" and the player carries on. |
+| C10 | pass | "Band - Named on the Disc" (0:05) and "CD Track 02"; 1411 kbps; track 2 follows by itself; the list is saved as `cdda://C:\...\disc.cue/1` and `/2`. Seeking was checked on the longer image of C14: a click mid-bar goes from 00:05 to 01:43, and a double click on row 5 plays track 5. |
+| C11 | not run | Windows 98. |
+| C14 | pass | `cd_names=1`: all six entries named within 8 s, the first "Ettella Diamant - Rysperdal Gstp", as on Linux; wininet loaded. `cd_names=0`: "CD Track 01" and so on, and neither network library loaded. |
+| R1 | pass | Of one core, at 150% and at 300%: local MP3 station 2.1% and 4.5%; fip over https 4.4% and 6.6%; disc image 1.0% and 3.8%. |
+| R2 | not run | Nothing new to measure. |
+| R3 | pass | 200 rounds over thirteen tracks (local stations, an https station, both disc images): GDI 13 and USER 18 throughout. Handles 293 at the start and 476 to 484 from the first https track on, which is what WinINet holds once loaded; level after that. Private memory 6.8 to 8.2 MB. |
+| R4 | pass | Ten changes between 100% and 200% with an https station playing: private memory 6.5 MB before, 12.2 at 200%, 7.9 after; handles 478 throughout. With a disc image: 6.1, 11.8, 6.4 MB; handles 254. Still playing afterwards both times. |
+| R5 | R5PENDING | R5PENDING |
+| 32-bit | pass | No file, a Cyrillic WAV, `/radio`, `/radio.aac`, `/radio.opus`, `/hls/mp4.m3u8`, the https station, fip, the expired certificate, the disc image, the names of C14, and M1 once: all as with the 64-bit build. |
+
+#### Fixes made during the second run
+
+**The player: a web address on the command line did not play (T0a).**
+`amplitude.exe http://127.0.0.1:18700/radio` showed "CANNOT PLAY: radio",
+and the saved list read
+`C:\Users\...\Amplitude\http:\127.0.0.1:18700\radio`. `main()` makes every
+argument absolute with `plat_absolute_path` and keeps the argument as it is
+when that fails. On Linux `realpath` fails for a file that does not exist,
+so an address came through untouched; on Windows `GetFullPathName` never
+fails for that reason and turns the address into a path under the current
+directory. The same would have happened to a `cdda://` argument, and to an
+address given to a second copy for the running player. `main()` now
+leaves addresses and CD tracks alone, as `add_path` already did. This is
+the only change in `src/`; every stream test from T0a on ran with it.
+
+The helper, `tests/windows/wintest.ps1`:
+
+- `Send-AmpKey -Ctrl`, for Ctrl+L and Ctrl+V.
+- `Set-AmpForeground`: Windows refused `SetForegroundWindow` for as long as
+  the notification panel was open on the desktop, so H2 and T2 could not
+  get the player in front until a real click was used.
+- `Test-AmpMediaKeys` and `Send-AmpMediaKey`, so that a media key is only
+  pressed when it is certain to be the player that takes it.
+
+This document: the Size menu's coordinates (3.3), the new helper functions
+(3.2), Python without installing it (4.14), T2 by script.
+
+One thing that looked like a fault of the Windows code and was not: in R3
+the menu failed to open about once in seven rounds. The main thread turned
+out to be busy for 1.2 to 2.2 s whenever the track changed **to** the test
+station's `/hls/ts.m3u8`. That station sends 40 ms of MP3 a second, and the
+MP3 decoder, set up on the main thread, waits for more. Every other change
+of track takes about 0.1 s, and real HLS stations (fip, BBC, the MP4 one)
+start with no such wait. Portable code, and a starved stream that only the
+test station produces.
+
+#### Still open after the second run
+
+Not run, and what each would take:
+
+- **All of 4.15 on a real drive** (C1 to C9, C12, C13): a machine with a CD
+  drive and a disc. `cd_win32.c` was read through for this run (the control
+  codes, the layout of the table of contents, the raw read request and its
+  fifteen sectors at a time) and nothing wrong was found, but apart from
+  "no drive found" it has still never run.
+- **Listening** (T3, T6a, T6b, T6c, a change of song on an Ogg station),
+  **T7**, **H4**: the user.
+- **M4, and the installer as a whole** (4.10); **K1 to K3**; **U6, P6, P7,
+  L5** from the first run: as before.
+- **T8 for a full hour**, and **the release executables**: as before, what
+  ran was built here.
+
+Seen along the way. None of it is specific to Windows; all three are in
+portable code and will be the same on Linux:
+
+- **A stream that cannot be played stops the list** (T0c). Broken files
+  are passed over since the first run, in `load_track`'s callers; a stream
+  fails later, in `stream_news`, which only shows the message. Either pass
+  it over there as well or change what T0c expects.
+- **Changing to 300% while running puts the playlist below the screen**
+  (D6). A window is docked beside the main one only the first time it is
+  shown; when the size changes the old layout is kept and merely moved up.
+- **"0 KBPS"** for Ogg stations and for HLS without a stated bandwidth
+  (T0b); blank would look better.
