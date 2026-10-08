@@ -8,8 +8,58 @@ the keyboard for the few things a script cannot do.
 Read sections 1 to 3 first. Then work through section 4 in order, write the
 outcome of every test into the table in section 6, and fix what fails.
 
+**For the second run (version 0.2.0)**, read section 0 right below first:
+it says what is new and what to do this time.
+
 Background reading: `docs/DEVELOPMENT.md`, especially section 9 ("Rules for
 the Windows build") and the part of section 5 about windows and models.
+
+## 0. The second run: what is new in 0.2.0
+
+The first run (section 6) tested commit 310c27d. Since then the player has
+gained a good deal, all of it written and tested on Linux and, as far as
+Windows goes, **only compiled**:
+
+| New | Windows-only code that has never run | Tests |
+|---|---|---|
+| Fixes from the first run: unplayable files are skipped, windows stay on screen, four-digit bitrate | none | repeat P1 (WAV), P4, D1 and D6 at 200% and 300% |
+| Several files opened at once from Explorer; one instance | the named mutex and hand-over in `platform_win32.c` | 4.12 |
+| Media keys | hot keys in `platform_win32.c` | 4.13 |
+| Jump to file window enlarged, with buttons; magnifier button in the playlist; all three windows shown on first start | none | shots of each, as in 4.4 and 4.5 |
+| Streams: internet radio (MP3, AAC, Ogg Vorbis, Opus), HLS, files on the web; the Open location window | all of `src/net_win32.c` (Winsock, WinINet, threads); clipboard reading | 4.14 |
+| Audio CDs, disc images, CD-Text, names from MusicBrainz | all of `src/cd_win32.c` (device access, and ASPI for Windows 98) | 4.15 |
+
+What to do, in this order:
+
+1. Build both executables (section 3.1) and record their sizes. The About
+   window must say "Version 0.2.0".
+2. S1, S2 and S5 again, as a check that the basics survived. S5 matters:
+   the new code loads its libraries (wsock32, wininet, wnaspi32) only when
+   needed, so the list of imported DLLs must still be the same six.
+3. The menu has two more entries, so its coordinates in section 3.3 have
+   changed; they are up to date there. Take one shot of the menu first.
+4. The repeats named in the first row of the table.
+5. Sections 4.12, 4.13, then 4.14 and 4.15. In the last two, do the parts
+   marked *scripted* first: they need no internet, no drive and no ears,
+   and they are where a crash or a hang in the new Windows code will show.
+6. R1 to R5 again with a stream playing and with a disc image playing.
+7. Write a "Second run" part into section 6 in the same form as the first.
+
+Two more rules for this run, in addition to section 2:
+
+- **The player now talks to the internet by itself** when a CD or a disc
+  image is added: it asks MusicBrainz for the names. Put `cd_names=0` into
+  the sandbox's ini for every test except C12 and C14, which are about
+  exactly that.
+- **Streams and discs make real sound.** The test station plays a short
+  beep over and over. `volume=0` in the ini, always (rule 3).
+
+The Linux side has no way to run any of this, so a failure here is as
+likely in the new Windows files as it was in `platform_win32.c` the first
+time. The portable parts (decoders, the HTTP and HLS logic, CD-Text and
+name parsing) have unit tests on Linux (`tests/test_stream.c`,
+`tests/test_cd.c`); if something fails in a way that looks portable, say
+so, and it can be reproduced there.
 
 ## 1. Why this exists
 
@@ -447,6 +497,53 @@ system-wide hot keys, and also answers `WM_APPCOMMAND`.
 `src/net_win32.c` is new and has only been compiled: Winsock for plain
 addresses, WinINet for secure ones, both loaded when the first stream opens.
 
+**Scripted, with the local test station.** `tests/stream_server.py` is a
+small web server with a station of every kind, on 127.0.0.1 only. It needs
+Python 3 on Windows (`py -3 --version`; if there is none, say so and go on
+to the real stations). Start it in a window of its own, to live an hour:
+
+    $env:STREAM_SERVER_SECONDS = 3600
+    py -3 tests\stream_server.py 18700 tests\media\sfx.mp3 tests\media
+
+Its addresses (all `http://127.0.0.1:18700` plus): `/radio` (MP3 with
+titles, "Test Radio", 128 kbps), `/old`, `/redirect`, `/station.pls` (three
+other ways to the same), `/radio.aac`, `/radio.ogg`, `/radio.opus`,
+`/hls/aac.m3u8`, `/hls/ts.m3u8`, `/hls/mp4.m3u8`, `/hls/video.m3u8` (live
+HLS of four kinds), `/hls/vod.m3u8` (HLS that ends after three short
+segments), `/file.mp3` (a file), `/nothing` (404) and `/hls/key.m3u8`
+(encrypted, refused). The top of the script describes each.
+
+- **T0a** Start the player with `/radio` as its argument (`Start-Amp
+  -Arguments`). Within a few seconds two shots a second apart show the
+  time advancing, "128" kbps, and the title display showing "Artist -
+  First Song" or the second title followed by "(Test Radio)"; the playlist
+  entry reads "Test Radio". Stop the player: it must exit at once, and
+  the saved playlist holds the address.
+- **T0b** The same for each of the other playing addresses, one player
+  start each: time advances, nothing crashes. `/radio.ogg` and
+  `/radio.opus` are named "Test Radio Ogg"; the HLS ones have no name.
+- **T0c** One player with all the addresses as arguments, `/nothing` and
+  `/hls/key.m3u8` among them: press Next (`Send-AmpKey "Amplitude" 0x42`,
+  the B key) every two seconds, twenty times. The bad ones show "CANNOT
+  PLAY" and are passed over; the player never hangs; `Get-AmpResources`
+  before and after shows no steady climb in handles; the process exits
+  promptly when stopped, even right after a Next.
+- **T0d** `/hls/vod.m3u8` first and a file second: when the stream ends
+  the file starts by itself.
+- **T0e** Stop the server (Ctrl+C in its window) while `/radio` plays:
+  the player plays out its buffer and stops or moves on; no hang.
+- **T0f** Open location by script: `Send-AmpClick "" 30 34` in the menu
+  opens the window titled "Open location" (275x76); `Send-AmpText "Open
+  location" "127.0.0.1:18700/radio"` types an address without "http://";
+  Enter (`Send-AmpKey "Open location" 0x0D`) closes the window, adds
+  `http://127.0.0.1:18700/radio` to the playlist and plays it. Escape
+  closes the window without adding anything. (Ctrl+L and Ctrl+V need the
+  real Ctrl key, which the helper only holds during clicks: either extend
+  `Send-AmpKey` with a `-Ctrl` switch in the way `Send-AmpClick` has one,
+  or leave them to T2.)
+
+**With the internet** (muted; a shot shows whether it plays):
+
 - **T1** S5 again: the executables still import only the six system DLLs.
 - **T2** Open location (Ctrl+L): the window opens, typing and Backspace
   work, Ctrl+V pastes an address from the clipboard, Escape closes it.
@@ -527,9 +624,59 @@ disc image, so what remains to be seen is the drive itself.
   expected to work on Windows 2000. A disc without CD-Text, or a drive
   that cannot read it, must simply keep "CD Track NN" with no delay
   worth noticing.
-- **C10** A disc image: drop a `.cue` with one `.bin` on the player.
+- **C10** *(scripted, no drive needed)* A disc image. Make one of two
+  tracks of silence, with names in it:
+
+      $d = "$env:TEMP\amp-cd"; New-Item -ItemType Directory -Force $d | Out-Null
+      fsutil file createnew "$d\disc.bin" (2352 * 75 * 10)
+      Set-Content "$d\disc.cue" -Encoding ascii @'
+      PERFORMER "Band"
+      FILE "disc.bin" BINARY
+       TRACK 01 AUDIO
+        TITLE "Named on the Disc"
+        INDEX 01 00:00:00
+       TRACK 02 AUDIO
+        INDEX 01 00:05:00
+      '@
+
+  Start the player with the `.cue` as its argument and `cd_names=0`. The
+  playlist shows "Band - Named on the Disc" (0:05) and "CD Track 02"; the
+  time advances; "1411" kbps; track 2 follows track 1 by itself; seeking
+  works. The saved playlist holds `cdda://<path of the .cue>/1` and `/2`.
+  This runs everything except the drive: the reader thread, the decoder,
+  and reading names from the disc.
+- **C14** *(scripted, needs the internet)* Names from MusicBrainz for an
+  image laid out like a real album. With `cd_names=1`:
+
+      fsutil file createnew "$d\real.bin" (2352 * 95312)
+      Set-Content "$d\real.cue" -Encoding ascii @'
+      FILE "real.bin" BINARY
+       TRACK 01 AUDIO
+        INDEX 01 00:00:00
+       TRACK 02 AUDIO
+        INDEX 01 03:22:63
+       TRACK 03 AUDIO
+        INDEX 01 07:08:64
+       TRACK 04 AUDIO
+        INDEX 01 10:19:17
+       TRACK 05 AUDIO
+        INDEX 01 14:03:39
+       TRACK 06 AUDIO
+        INDEX 01 17:51:14
+      '@
+
+  Within some seconds of starting the player on it, the first entry
+  changes from "CD Track 01" to "Ettella Diamant - Rysperdal Gstp" (it did
+  on Linux). This is a secure request through WinINet followed by the
+  portable parsing. With `cd_names=0` the entries stay as they are.
 
 ## 5. What only the user can check
+
+For the second run: M-tests of 4.13 with a real media key; T2 (Ctrl+L,
+Ctrl+V); listening to one station of each kind (T3, T6a, T6b, T6c) and
+across a change of song on an Ogg station; T7 (network unplugged); and
+all of 4.15 except C10 and C14, which needs an audio CD in a drive (C1 to
+C9, C12, C13), and a Windows 98 machine for C11.
 
 Collected from above, for one sitting: U6 (dialogs, drag and drop), P6
 (sound quality), P7 (no audio device), W3 (second monitor), W5 (link opens),

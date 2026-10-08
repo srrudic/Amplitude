@@ -27,7 +27,8 @@ With the directory of test media given as well:
     /station.pls   a station playlist naming /radio
     /hls.m3u8      an HTTP Live Streaming playlist whose segments do not exist
     /quit          stops the server
-anything else is 404. It stops by itself after two minutes.
+anything else is 404. It stops by itself after two minutes, or after the
+number of seconds in the environment variable STREAM_SERVER_SECONDS.
 """
 import socket
 import sys
@@ -284,7 +285,8 @@ def main():
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("127.0.0.1", PORT))
     server.listen(16)
-    threading.Timer(120, lambda: __import__("os")._exit(0)).start()
+    lifetime = float(__import__("os").environ.get("STREAM_SERVER_SECONDS", "120"))
+    threading.Timer(lifetime, lambda: __import__("os")._exit(0)).start()
     while True:
         conn, _ = server.accept()
         threading.Thread(target=serve, args=(conn,), daemon=True).start()

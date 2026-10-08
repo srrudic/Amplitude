@@ -164,7 +164,7 @@ function Get-AmpWindows {
 }
 
 # Titles: "Amplitude", "Amplitude Equalizer", "Amplitude Playlist",
-# "Jump to file", "About Amplitude"; "" is the popup menu.
+# "Jump to file", "About Amplitude", "Open location"; "" is the popup menu.
 function Get-AmpWindow([string]$Title) {
     return Get-AmpWindows | Where-Object { $_.Title -eq $Title -and ($Title -ne "" -or $_.Visible) } | Select-Object -First 1
 }
