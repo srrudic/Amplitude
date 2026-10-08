@@ -189,10 +189,14 @@ void cd_close(Cd *cd)
 int cd_text_parse(const unsigned char *packs, size_t size, const CdToc *toc, CdNames *out)
 {
     /* [0] titles, [1] performers; for the album and tracks 1 to 99 */
-    static char text[2][CD_MAX_TRACKS + 1][sizeof out->track[0].title];
+    char (*text[2])[sizeof out->track[0].title];
     size_t at, lengths[2][CD_MAX_TRACKS + 1];
     int kind, i;
 
+    text[0] = calloc(2 * (CD_MAX_TRACKS + 1), sizeof *text[0]);
+    if (!text[0])
+        return 0;
+    text[1] = text[0] + CD_MAX_TRACKS + 1;
     memset(lengths, 0, sizeof lengths);
     for (at = 0; at + TEXT_PACK <= size; at += TEXT_PACK) {
         const unsigned char *pack = packs + at;
@@ -236,6 +240,7 @@ int cd_text_parse(const unsigned char *packs, size_t size, const CdToc *toc, CdN
             out->track[out->count].artist[0] = '\0';
         out->count++;
     }
+    free(text[0]);
     return out->count > 0;
 }
 

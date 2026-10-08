@@ -509,11 +509,10 @@ void cd_names_request(const char *device, int online)
         busy = 0;
 }
 
-int cd_names_take(CdNames *out)
+const CdNames *cd_names_take(void)
 {
     if (!ready || busy)
-        return 0;
-    *out = found;
+        return NULL;
     ready = 0;
-    return 1;
+    return &found;
 }

@@ -95,7 +95,8 @@ typedef struct {
     int channels, rate;
     int dead;                   /* the station changed format; nothing more is decoded */
 
-    unsigned char *data;        /* received and not yet decoded */
+    unsigned char *buffer;      /* STREAM_BUFFER bytes, of which */
+    unsigned char *data;        /* `have` bytes from here on are received and not yet decoded */
     size_t have;
     size_t safe;                /* how much of it belongs to the stream being decoded
                                  * (can run past `have`: the rest of a page still to come) */
@@ -110,8 +111,16 @@ typedef struct {
 
 static size_t stream_fill(VorbisStream *v)
 {
-    size_t got = v->feed(v->feed_user, v->data + v->have, STREAM_BUFFER - v->have);
+    size_t used = (size_t)(v->data - v->buffer), got;
 
+    /* What is decoded is only stepped over (see stream_consume); the rest
+     * is moved back to the front when half the buffer has gone that way. */
+    if (used && used + v->have > STREAM_BUFFER / 2) {
+        memmove(v->buffer, v->data, v->have);
+        v->data = v->buffer;
+        used = 0;
+    }
+    got = v->feed(v->feed_user, v->data + v->have, STREAM_BUFFER - used - v->have);
     v->have += got;
     return got;
 }
@@ -120,7 +129,7 @@ static void stream_consume(VorbisStream *v, size_t size)
 {
     v->have -= size;
     v->safe -= size;
-    memmove(v->data, v->data + size, v->have);
+    v->data += size;
 }
 
 /* Follows the pages as far as they have arrived. Returns how many bytes
@@ -225,8 +234,10 @@ static int stream_decode(VorbisStream *v)
             if (v->chained) {
                 stream_consume(v, usable);      /* the odd bytes left of the old stream */
             } else {
-                if (v->have == STREAM_BUFFER)
+                if (v->have == STREAM_BUFFER) {
                     v->have = v->safe = 0;      /* nothing decodable in all of it */
+                    v->data = v->buffer;
+                }
                 if (!stream_fill(v))
                     return 0;
             }
@@ -287,7 +298,7 @@ static void stream_close(void *state)
 
     if (v->vorbis)
         stb_vorbis_close(v->vorbis);
-    free(v->data);
+    free(v->buffer);
     free(v);
 }
 
@@ -300,7 +311,7 @@ int codec_open_vorbis_stream(CodecFeed feed, void *user, Codec *codec)
         return 0;
     v->feed = feed;
     v->feed_user = user;
-    v->data = malloc(STREAM_BUFFER);
+    v->buffer = v->data = malloc(STREAM_BUFFER);
     while (v->data && (started = stream_start(v)) == 0)
         if (v->have == STREAM_BUFFER || !stream_fill(v))
             break;

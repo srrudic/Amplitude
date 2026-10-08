@@ -36,8 +36,10 @@ typedef struct {
 
 static void lock(CdTrackState *t)
 {
+    /* Held only for a copy; but on a machine with one processor the holder
+     * cannot finish while we spin, so it is given the processor. */
     while (__sync_lock_test_and_set(&t->lock, 1))
-        ;       /* held only for a copy */
+        plat_sleep_ms(0);
 }
 
 static void unlock(CdTrackState *t)

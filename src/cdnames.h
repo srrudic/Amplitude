@@ -22,8 +22,9 @@
  * the disc says of itself (see cd_read_names) comes first; the internet is
  * asked only if that is nothing and `online` allows it. */
 void cd_names_request(const char *device, int online);
-/* Returns 1, once, when names have been found, and fills `out`. */
-int  cd_names_take(CdNames *out);
+/* Returns the names, once, when some have been found; otherwise NULL. They
+ * stay valid until the next request. */
+const CdNames *cd_names_take(void);
 
 /* The pieces, exposed for the tests. */
 void cd_names_musicbrainz_id(const CdToc *toc, char id[29]);

@@ -30,6 +30,7 @@
 #define JUMP_OFFSET     20      /* where the dialogs first open, from the main window's corner */
 #define ABOUT_OFFSET    12
 #define URL_OFFSET      16
+#define STREAM_TITLE_MS 500     /* how often a station is asked what it is playing */
 #define QUERY_MAX       128     /* characters compared when searching */
 #define TITLE_MAX       256
 #define DOUBLE_CLICK_MS 400
@@ -2405,27 +2406,27 @@ static int all_exposed(void)
  * and so on, wherever in the playlist tracks of that disc stand. */
 static void cd_names_news(void)
 {
-    static CdNames names;
+    const CdNames *names = cd_names_take();
     char device[CD_DEVICE_MAX], text[400];
     int i, t, number;
 
-    if (!cd_names_take(&names))
+    if (!names)
         return;
     for (i = 0; i < playlist_count(); i++) {
         const char *path = playlist_get(i)->path;
 
         if (!path_is_cd(path) || !cd_split_path(path, device, sizeof device, &number) ||
-            strcmp(device, names.device) != 0)
+            strcmp(device, names->device) != 0)
             continue;
-        for (t = 0; t < names.count && names.track[t].number != number; t++)
+        for (t = 0; t < names->count && names->track[t].number != number; t++)
             ;
-        if (t == names.count)
+        if (t == names->count)
             continue;
-        if (names.track[t].artist[0] || names.artist[0])
-            snprintf(text, sizeof text, "%s - %s", names.track[t].artist[0] ? names.track[t].artist : names.artist,
-                     names.track[t].title);
+        if (names->track[t].artist[0] || names->artist[0])
+            snprintf(text, sizeof text, "%s - %s", names->track[t].artist[0] ? names->track[t].artist : names->artist,
+                     names->track[t].title);
         else
-            snprintf(text, sizeof text, "%s", names.track[t].title);
+            snprintf(text, sizeof text, "%s", names->track[t].title);
         playlist_set_title(i, text);
     }
     if (track_loaded)
@@ -2436,6 +2437,7 @@ static void cd_names_news(void)
  * opened after all, the station's name and bitrate, the song it plays. */
 static void stream_news(void)
 {
+    static uint32_t title_asked;
     const Track *track = playlist_get(track_index);
     const char *name;
 
@@ -2454,8 +2456,13 @@ static void stream_news(void)
     }
     if (audio_stream_bitrate())
         track_kbps = audio_stream_bitrate();
-    if (audio_stream_title(stream_song, sizeof stream_song))
-        show_title();
+    /* The song changes every few minutes, and asking can mean waiting for
+     * the audio thread: twice a second is plenty. */
+    if (plat_ticks_ms() - title_asked >= STREAM_TITLE_MS) {
+        title_asked = plat_ticks_ms();
+        if (audio_stream_title(stream_song, sizeof stream_song))
+            show_title();
+    }
 }
 
 /* Paints the windows as soon as they exist and waits, briefly, until the
