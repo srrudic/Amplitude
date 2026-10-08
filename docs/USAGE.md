@@ -103,8 +103,13 @@ older is too old for many of today's servers.
 **Audio CDs.** "Play audio CD" in the menu adds the tracks of the disc in
 the drive to the playlist and starts the first; "Add audio CD" in the
 playlist's ADD menu only adds them. The tracks are named "CD Track 01" and
-so on (the names of the songs are not looked up), and they play, seek and
-follow one another without gaps like files. The sound is read off the
+so on at first, and they play, seek and follow one another without gaps
+like files. A moment later the names of the songs replace those, if the
+disc is known to MusicBrainz, a public database on the internet: for that
+the player sends it the positions of the tracks on the disc, which is what
+identifies an album, and nothing else. "Look up CD track names" in the
+playlist's MISC menu turns this off. (It needs a secure connection, so it
+does not work on Windows XP and older.) The sound is read off the
 disc digitally, so the drive needs no cable to the sound card. On Linux
 your user must be allowed to read the drive, which desktop systems arrange
 by themselves; on Windows 2000 and later it just works, and in Explorer a

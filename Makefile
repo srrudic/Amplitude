@@ -29,7 +29,7 @@ VERSION        := 0.2.0
 RELEASE_DATE   := 2026-10-04
 DEB_MAINTAINER ?= Srđan Rudić <blaster7th@gmail.com>
 
-COMMON_SRC := main.c config.c tags.c presets.c theme.c playlist.c ui.c ui_eq.c ui_playlist.c ui_jump.c ui_about.c ui_url.c ui_dialog.c ui_menu.c gfx.c font_data.c audio.c stream.c cd.c \
+COMMON_SRC := main.c config.c tags.c presets.c theme.c playlist.c ui.c ui_eq.c ui_playlist.c ui_jump.c ui_about.c ui_url.c ui_dialog.c ui_menu.c gfx.c font_data.c audio.c stream.c cd.c cdnames.c \
               skin.c skin_default.c zip.c \
               codec.c codec_vorbis.c codec_opus.c codec_aac.c codec_mod.c codec_cd.c
 HEADERS    := $(wildcard src/*.h)

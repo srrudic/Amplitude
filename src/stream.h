@@ -41,6 +41,12 @@ const char *stream_url(const Stream *stream);
  * last call: fills `out` (UTF-8) and returns 1. */
 int     stream_take_title(Stream *stream, char *out, size_t size);
 
+/* Fetches the whole of what is at an address (following redirects), for
+ * things other than audio. Waits for it; meant for a thread of one's own.
+ * Returns memory to free(), with a zero byte after the end, or NULL if it
+ * could not be had or is longer than `max`. */
+char   *stream_fetch(const char *url, size_t max, size_t *size);
+
 /* Parsing helpers, exposed for the tests. Splits an http or https address;
  * returns 0 if it is not one. */
 int     stream_parse_url(const char *url, int *secure, char *host, size_t host_size, int *port,

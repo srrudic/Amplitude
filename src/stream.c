@@ -331,7 +331,8 @@ static void drop_conn(Stream *s)
  * `extra`. Returns 0 on any failure. */
 static int request(Stream *s, const char *url, char *headers, unsigned char *extra, size_t *extra_len)
 {
-    static const char ours[] = "User-Agent: Amplitude/" AMPLITUDE_VERSION "\r\nIcy-MetaData: 1\r\nAccept: */*\r\n";
+    static const char ours[] = "User-Agent: Amplitude/" AMPLITUDE_VERSION " ( https://amplitude.cr.rs )\r\n"
+                               "Icy-MetaData: 1\r\nAccept: */*\r\n";
     char host[256], path[1024], text[1600];
     int secure, port, len = 0, got;
     PlatConn *conn;
@@ -1147,6 +1148,20 @@ static void reader(void *arg)
 }
 
 /* --- The interface ------------------------------------------------------------- */
+
+char *stream_fetch(const char *url, size_t max, size_t *size)
+{
+    Stream *s = calloc(1, sizeof *s);       /* only its connection is used */
+    char address[sizeof s->url];
+    char *data = NULL;
+
+    if (s && strlen(url) < sizeof address) {
+        memcpy(address, url, strlen(url) + 1);
+        data = (char *)fetch(s, address, max, size);
+    }
+    free(s);
+    return data;
+}
 
 Stream *stream_open(const char *url)
 {

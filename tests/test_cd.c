@@ -7,6 +7,7 @@
  */
 #include "audio.h"
 #include "cd.h"
+#include "cdnames.h"
 #include "codec.h"
 #include "test.h"
 
@@ -156,6 +157,78 @@ static void test_codec(void)
     CHECK(!codec_open("cdda:///dev/null/1", &codec));
 }
 
+/* Looking names up, without the looking: the IDs a disc is known by, and
+ * reading what the two databases answer. */
+static void test_names(void)
+{
+    /* The example from MusicBrainz's description of its disc ID. */
+    static const long starts[] = { 0, 15213, 32164, 46442, 63264, 80339 };
+    static const char musicbrainz[] =
+        "{\"id\":\"x\",\"releases\":[{\"title\":\"Other\",\"media\":[{\"position\":1,\"discs\":[{\"id\":\"nope\"}],"
+        "\"tracks\":[{\"position\":1,\"title\":\"Wrong\"}]}]},"
+        "{\"artist-credit\":[{\"name\":\"Sigur R\\u00f3s\",\"joinphrase\":\"\"}],\"title\":\"The \\\"Album\\\"\","
+        "\"media\":[{\"position\":1,\"discs\":[],\"tracks\":[]},"
+        "{\"discs\":[{\"id\":\"other\"},{\"sectors\":95462,\"id\":\"49HHV7Eb8UKF3aQiNmu1GR8vKTY-\"}],\"position\":2,"
+        "\"tracks\":[{\"number\":\"A1\",\"position\":1,\"title\":\"First [x], {y}\","
+        "\"artist-credit\":[{\"name\":\"Sigur R\\u00f3s\",\"joinphrase\":\"\"}]},"
+        "{\"position\":2,\"title\":\"Second\",\"artist-credit\":[{\"name\":\"A\",\"joinphrase\":\" feat. \"},"
+        "{\"name\":\"\\u65e5\\u672c\",\"joinphrase\":\"\"}],\"recording\":{\"title\":\"not this\"}}]}]}]}";
+    static const char cddb[] =
+        "210 rock 3f04f806 CD database entry follows (until terminating `.')\r\n# xmcd\r\nDISCID=3f04f806\r\n"
+        "DTITLE=Various / A Long Alb\r\nDTITLE=um Name\r\nDYEAR=1999\r\nTTITLE0=One Artist / One\r\n"
+        "TTITLE1=Tw\xF6\r\nTTITLE5=Six\r\nEXTD=\r\n.\r\n";
+    static CdNames names;
+    char id[29], category[16], disc[16];
+    CdToc toc;
+    int i;
+
+    memset(&toc, 0, sizeof toc);
+    toc.count = 6;
+    for (i = 0; i < 6; i++) {
+        toc.track[i].number = i + 1;
+        toc.track[i].audio = 1;
+        toc.track[i].start = starts[i];
+        toc.track[i].sectors = (i < 5 ? starts[i + 1] : 95462 - 150) - starts[i];
+    }
+    cd_names_musicbrainz_id(&toc, id);
+    CHECK_STR(id, "49HHV7Eb8UKF3aQiNmu1GR8vKTY-");
+    CHECK_INT((int)(cd_names_cddb_id(&toc) & 0xFFFFFF), (1272 - 2) << 8 | 6);   /* seconds and tracks */
+    CHECK_INT((int)(cd_names_cddb_id(&toc) >> 24), (2 + (2+0+4) + (4+3+0) + (6+2+1) + (8+4+5) + (1+0+7+3)) % 255);
+
+    CHECK(cd_names_parse_musicbrainz(musicbrainz, id, &toc, &names));
+    CHECK_STR(names.artist, "Sigur R\xC3\xB3s");
+    CHECK_STR(names.album, "The \"Album\"");
+    CHECK_INT(names.count, 2);
+    CHECK_INT(names.track[0].number, 1);
+    CHECK_STR(names.track[0].title, "First [x], {y}");
+    CHECK_STR(names.track[0].artist, "");                   /* the album's */
+    CHECK_STR(names.track[1].title, "Second");
+    CHECK_STR(names.track[1].artist, "A feat. \xE6\x97\xA5\xE6\x9C\xAC");
+    CHECK(!cd_names_parse_musicbrainz("{\"error\":\"Not Found\"}", id, &toc, &names));
+    CHECK(!cd_names_parse_musicbrainz("", id, &toc, &names));
+    CHECK(!cd_names_parse_musicbrainz("{\"releases\":[{\"media\":[{\"tracks\":[{\"title\":\"unfinished", id, &toc, &names));
+
+    CHECK(cd_names_parse_cddb_query("200 rock 3f04f806 Various / Album\r\n", category, sizeof category, disc, sizeof disc));
+    CHECK_STR(category, "rock");
+    CHECK_STR(disc, "3f04f806");
+    CHECK(cd_names_parse_cddb_query("211 Found inexact matches, list follows\r\nmisc 12345678 A / B\r\njazz 1 C\r\n.\r\n",
+                                    category, sizeof category, disc, sizeof disc));
+    CHECK_STR(category, "misc");
+    CHECK_STR(disc, "12345678");
+    CHECK(!cd_names_parse_cddb_query("202 No match found\r\n", category, sizeof category, disc, sizeof disc));
+    CHECK(!cd_names_parse_cddb_query("210 Found exact matches\r\n.\r\n", category, sizeof category, disc, sizeof disc));
+    CHECK(cd_names_parse_cddb(cddb, &toc, &names));
+    CHECK_STR(names.artist, "Various");
+    CHECK_STR(names.album, "A Long Album Name");
+    CHECK_INT(names.count, 3);
+    CHECK_STR(names.track[0].artist, "One Artist");
+    CHECK_STR(names.track[0].title, "One");
+    CHECK_STR(names.track[1].title, "Tw\xC3\xB6");          /* sent as Latin-1 */
+    CHECK_INT(names.track[2].number, 6);
+    CHECK_STR(names.track[2].title, "Six");
+    CHECK(!cd_names_parse_cddb("401 Specified CDDB entry not found\r\n", &toc, &names));
+}
+
 static void test_playback(void)
 {
     int waited;
@@ -191,6 +264,7 @@ int main(void)
     make_disc();
     test_toc();
     test_codec();
+    test_names();
     test_playback();
     usleep(200 * 1000);     /* let the reader threads finish, so nothing looks leaked */
     return test_end();

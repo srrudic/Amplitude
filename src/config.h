@@ -8,6 +8,7 @@ typedef struct {
     int volume;                 /* 0..100 */
     int balance;                /* -100..100 */
     int shuffle, repeat;
+    int cd_names;               /* look the songs of audio CDs up on the internet */
     int eq_on;
     int eq_auto;                /* pick a preset from each track's genre */
     int eq[CONFIG_EQ_SLIDERS];  /* -1000..1000 */

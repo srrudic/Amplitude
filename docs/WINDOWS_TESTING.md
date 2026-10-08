@@ -515,6 +515,11 @@ disc image, so what remains to be seen is the drive itself.
   came with Windows, or Nero's or Adaptec's) and whether "Play audio CD"
   finds the disc. With two CD drives, check that a track dropped from the
   second drive's Explorer window plays from that drive and not the first.
+- **C12** Names: with a well-known album in the drive and the internet
+  reachable, the "CD Track NN" entries turn into "Artist - Title" within
+  a few seconds. With "Look up CD track names" unticked in the MISC menu
+  (and after a restart, still unticked) they stay as they are. With the
+  network cable out, nothing hangs.
 - **C10** A disc image: drop a `.cue` with one `.bin` on the player.
 
 ## 5. What only the user can check

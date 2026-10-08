@@ -1,5 +1,6 @@
 #include "audio.h"
 #include "cd.h"
+#include "cdnames.h"
 #include "config.h"
 #include "platform.h"
 #include "playlist.h"
@@ -77,6 +78,7 @@ static float balance;
 static uint32_t volume_readout_until;   /* ticks until which the title display shows the volume */
 static int volume_readout;
 static int shuffle, repeat;
+static int cd_names_on;             /* look CD track names up on the internet */
 static int vis_mode;
 static int queued_index = -1;       /* track prepared for a gapless hand-over */
 /* The tracks played before the current one, oldest first, so that with
@@ -129,7 +131,7 @@ enum {
     CMD_SELECT_ALL, CMD_SELECT_NONE, CMD_SELECT_INVERT,
     CMD_SORT_TITLE, CMD_SORT_FILENAME, CMD_SORT_PATH, CMD_REVERSE, CMD_RANDOMIZE,
     CMD_LIST_NEW, CMD_LIST_OPEN, CMD_LIST_SAVE, CMD_ABOUT, CMD_SKIN_LOAD,
-    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR, CMD_JUMP, CMD_OPEN_URL, CMD_PLAY_CD, CMD_ADD_CD,
+    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR, CMD_JUMP, CMD_OPEN_URL, CMD_PLAY_CD, CMD_ADD_CD, CMD_CD_NAMES,
     CMD_SIZE_FIRST = 1500,      /* + index into size_choices */
     CMD_PRESET_FIRST = 1600,    /* + index into presets */
     CMD_COLOR_FIRST = 1700,     /* + index into theme_presets */
@@ -511,8 +513,16 @@ static void track_started(int index)
     if (length > 0)
         playlist_set_length(index, (int)length);
     show_title();
-    if (path_is_cd(track->path))
+    if (path_is_cd(track->path)) {
+        char device[CD_DEVICE_MAX];
+        int number;
+
         track_kbps = CD_RATE * 2 * 16 / 1000;       /* always the same on a CD */
+        /* Still nameless (a playlist from an earlier run, say): ask. */
+        if (cd_names_on && strncmp(track->title, "CD Track ", 9) == 0 &&
+            cd_split_path(track->path, device, sizeof device, &number))
+            cd_names_request(device);
+    }
     else if (length > 0)
         track_kbps = (int)((double)file_size(track->path) * 8.0 / length / 1000.0 + 0.5);
     scroll_into_view(index);
@@ -872,6 +882,8 @@ static int add_cd(const char *device)
     }
     cd_close(cd);
     queue_dirty = 1;
+    if (cd_names_on && first >= 0)
+        cd_names_request(device);       /* the names follow when they are found */
     return first;
 }
 
@@ -1137,6 +1149,7 @@ static int apply_config(void)
     volume = (float)config.volume / 100.0f;
     balance = (float)config.balance / 100.0f;
     shuffle = config.shuffle;
+    cd_names_on = config.cd_names;
     repeat = config.repeat;
     eq_on = config.eq_on;
     eq_auto = config.eq_auto;
@@ -1193,6 +1206,7 @@ static void collect_config(void)
     config.volume = (int)(volume * 100.0f + 0.5f);
     config.balance = (int)(balance * 100.0f + (balance < 0 ? -0.5f : 0.5f));
     config.shuffle = shuffle;
+    config.cd_names = cd_names_on;
     config.repeat = repeat;
     config.eq_on = eq_on;
     config.eq_auto = eq_auto;
@@ -1524,6 +1538,8 @@ static void open_menu(int which)
         menu_add(NULL, 0, 0);
         menu_add("Queue selected to play next", CMD_QUEUE_SELECTED, 0);
         menu_add("Clear queue", CMD_QUEUE_CLEAR, 0);
+        menu_add(NULL, 0, 0);
+        menu_add("Look up CD track names", CMD_CD_NAMES, cd_names_on);
     } else if (which == MENU_LIST) {
         menu_add("New list", CMD_LIST_NEW, 0);
         menu_add("Open list...", CMD_LIST_OPEN, 0);
@@ -1756,6 +1772,9 @@ static void do_action(int element)
         break;
     case CMD_OPEN_URL:
         open_url_window();
+        break;
+    case CMD_CD_NAMES:
+        cd_names_on = !cd_names_on;
         break;
     case CMD_PLAY_CD:
     case CMD_ADD_CD:
@@ -2383,6 +2402,37 @@ static int all_exposed(void)
     return 1;
 }
 
+/* Names for the tracks of a CD have arrived: they replace "CD Track 01"
+ * and so on, wherever in the playlist tracks of that disc stand. */
+static void cd_names_news(void)
+{
+    static CdNames names;
+    char device[CD_DEVICE_MAX], text[400];
+    int i, t, number;
+
+    if (!cd_names_take(&names))
+        return;
+    for (i = 0; i < playlist_count(); i++) {
+        const char *path = playlist_get(i)->path;
+
+        if (!path_is_cd(path) || !cd_split_path(path, device, sizeof device, &number) ||
+            strcmp(device, names.device) != 0)
+            continue;
+        for (t = 0; t < names.count && names.track[t].number != number; t++)
+            ;
+        if (t == names.count)
+            continue;
+        if (names.track[t].artist[0] || names.artist[0])
+            snprintf(text, sizeof text, "%s - %s", names.track[t].artist[0] ? names.track[t].artist : names.artist,
+                     names.track[t].title);
+        else
+            snprintf(text, sizeof text, "%s", names.track[t].title);
+        playlist_set_title(i, text);
+    }
+    if (track_loaded)
+        show_title();
+}
+
 /* What a stream has to report since the last frame: that it could not be
  * opened after all, the station's name and bitrate, the song it plays. */
 static void stream_news(void)
@@ -2557,6 +2607,7 @@ int main(int argc, char **argv)
         if (audio_take_finished() && !play_next())
             audio_stop();
         stream_news();
+        cd_names_news();
         if (queue_dirty)
             update_queue();
 

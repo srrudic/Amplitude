@@ -416,7 +416,14 @@ the source is to that format.
   device the path may name a CUE sheet with one raw `.bin` file; `cd.c`
   reads those itself. That is a small feature in its own right, and it is
   how everything but the two drive files is tested without a drive
-  (`tests/test_cd.c` makes such an image).
+  (`tests/test_cd.c` makes such an image). **`cdnames.c`** looks the
+  song names up on a thread of its own: it works out the disc IDs from the
+  track positions and asks MusicBrainz (JSON, read by a few small `js_*`
+  functions) and then gnudb (the old CDDB protocol over HTTP). gnudb only
+  answers programs whose author has registered an e-mail address, which
+  goes into `GNUDB_CONTACT`; while that is empty gnudb is not asked. Both
+  are fetched with `stream_fetch`. The player asks when a disc is added
+  and when a still nameless CD track starts, unless `cd_names=0`.
 - **`mpris.c`** (Linux) answers the desktop's media controls. Modern
   desktops own the media keys and pass them to players over D-Bus, so this
   is what makes keyboard media keys and Bluetooth headphone buttons work.

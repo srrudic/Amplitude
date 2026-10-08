@@ -9,6 +9,7 @@ void config_defaults(Config *config)
 {
     memset(config, 0, sizeof *config);
     config->volume = 80;
+    config->cd_names = 1;
     config->color = 0x6CC4FF;
     config->pl_w = 275;
     config->pl_h = 232;
@@ -27,6 +28,7 @@ int config_load(Config *config, const char *path)
         { "balance", &config->balance, -100, 100 },
         { "shuffle", &config->shuffle, 0, 1 },
         { "repeat", &config->repeat, 0, 1 },
+        { "cd_names", &config->cd_names, 0, 1 },
         { "eq_on", &config->eq_on, 0, 1 },
         { "eq_auto", &config->eq_auto, 0, 1 },
         { "scale_percent", &config->scale, 0, 400 },
@@ -95,6 +97,7 @@ int config_save(const Config *config, const char *path)
         return 0;
     fprintf(f, "volume=%d\nbalance=%d\nshuffle=%d\nrepeat=%d\n", config->volume, config->balance,
             config->shuffle, config->repeat);
+    fprintf(f, "cd_names=%d\n", config->cd_names);
     fprintf(f, "eq_on=%d\neq_auto=%d\neq=", config->eq_on, config->eq_auto);
     for (i = 0; i < CONFIG_EQ_SLIDERS; i++)
         fprintf(f, "%s%d", i ? "," : "", config->eq[i]);
