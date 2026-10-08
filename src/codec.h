@@ -28,6 +28,7 @@ int codec_open_vorbis(const char *path, Codec *codec);
 int codec_open_opus(const char *path, Codec *codec);
 int codec_open_aac(const char *path, Codec *codec);     /* MP4/M4A and raw ADTS */
 int codec_open_module(const char *path, Codec *codec);  /* MOD, XM, S3M, IT */
+int codec_open_cd(const char *path, Codec *codec);      /* a track of an audio CD (see cd.h) */
 
 /* Decoding from a stream (an internet radio station) rather than a file.
  * The input is fetched through `feed`, which returns the bytes it could

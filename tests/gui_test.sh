@@ -129,13 +129,13 @@ ok "playlist kept across the restart" tracks 6
 
 echo "--- colour change from the menu"
 start
-drive rclick 0 50 50 500 300  menu 30 153  popup yes  menu 30 52  popup no     # Color... > Amber
+drive rclick 0 50 50 500 300  menu 30 166  popup yes  menu 30 52  popup no     # Color... > Amber
 quit
 ok "colour saved" setting "color=#FFB347"
 
 echo "--- size change while running"
 start
-drive rclick 0 50 50 500 300  menu 30 139  popup yes  menu 30 91  wait 500     # Size... > 200%
+drive rclick 0 50 50 500 300  menu 30 152  popup yes  menu 30 91  wait 500     # Size... > 200%
 drive size 0 550 232  size 1 550 232  below 0 1
 "$DRIVE" click 0 536 14 0 >/dev/null; wait "$DRIVE_PID" 2>/dev/null; DRIVE_PID=
 ok "size saved" setting "scale_percent=200"
@@ -229,6 +229,21 @@ drive hidden 5  key 0 l 4  size 5 275 76  key 5 Escape 0  hidden 5
 quit
 kill "$SERVER_PID" 2>/dev/null
 ok "the station's address is in the playlist" grep -qx "http://127.0.0.1:$STREAM_PORT/radio" "$M3U"
+ok "the player reported no errors" sh -c "! grep -q '^amplitude:' '$WORK/stderr'"
+
+echo "--- audio CD: an image of a disc given at start"
+# A CUE sheet with a raw file of silence stands in for a disc in a drive:
+# two audio tracks of two seconds each.
+export XDG_CONFIG_HOME="$WORK/config-cd"
+INI="$XDG_CONFIG_HOME/amplitude/amplitude.ini"
+M3U="$XDG_CONFIG_HOME/amplitude/amplitude.m3u"
+mkdir -p "$WORK/cd"
+head -c $((2352 * 300)) /dev/zero > "$WORK/cd/disc.bin"
+printf 'FILE "disc.bin" BINARY\n TRACK 01 AUDIO\n  INDEX 01 00:00:00\n TRACK 02 AUDIO\n  INDEX 01 00:02:00\n' > "$WORK/cd/disc.cue"
+start --scale 1 "$WORK/cd/disc.cue"
+sleep 1
+quit
+ok "both tracks of the disc are in the playlist" test "$(grep -c "^cdda://$WORK/cd/disc.cue/[12]\$" "$M3U")" = 2
 ok "the player reported no errors" sh -c "! grep -q '^amplitude:' '$WORK/stderr'"
 
 if [ $failed -eq 0 ]; then echo "gui test passed"; else echo "gui test FAILED"; fi

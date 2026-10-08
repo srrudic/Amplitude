@@ -1,5 +1,7 @@
 #include "playlist.h"
 
+#include "cd.h"
+
 #include "platform.h"
 #include "tags.h"
 #include "util.h"
@@ -55,7 +57,13 @@ int playlist_add(const char *path)
         capacity = grown_capacity;
     }
 
-    if (path_is_url(path)) {
+    if (path_is_cd(path)) {
+        char device[CD_DEVICE_MAX];
+        int number = 0;
+
+        cd_split_path(path, device, sizeof device, &number);
+        snprintf(text, sizeof text, "CD Track %02d", number);
+    } else if (path_is_url(path)) {
         /* A web address: nothing to read tags from. It is shown without its
          * "http://" until the station gives its name. */
         const char *shown = strstr(path, "://");
@@ -319,7 +327,7 @@ void playlist_free(void)
 
 static int is_absolute(const char *path)
 {
-    return path[0] == '/' || path[0] == '\\' || (path[0] && path[1] == ':') || path_is_url(path);
+    return path[0] == '/' || path[0] == '\\' || (path[0] && path[1] == ':') || path_is_url(path) || path_is_cd(path);
 }
 
 #define BREATHE_EVERY 16    /* tracks */

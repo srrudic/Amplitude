@@ -100,6 +100,18 @@ of an HLS video, the player plays its sound. Secure
 on Windows whatever that version of Windows provides, which on XP and
 older is too old for many of today's servers.
 
+**Audio CDs.** "Play audio CD" in the menu adds the tracks of the disc in
+the drive to the playlist and starts the first; "Add audio CD" in the
+playlist's ADD menu only adds them. The tracks are named "CD Track 01" and
+so on (the names of the songs are not looked up), and they play, seek and
+follow one another without gaps like files. The sound is read off the
+disc digitally, so the drive needs no cable to the sound card. On Linux
+your user must be allowed to read the drive, which desktop systems arrange
+by themselves; on Windows 2000 and later it just works, and in Explorer a
+track ("Track03.cda") can also be opened or dropped on the player.
+Windows 95, 98 and Me cannot do this. An image of a disc plays too: open
+or drop its `.cue` file, provided the image is one raw `.bin` file.
+
 **Play queue.** To hear something next without changing the list, queue
 it: select tracks in the playlist and press Q (or MISC, "Queue selected to
 play next"), or in jump to file use the ENQUEUE button, Ctrl+Q or Shift+Enter on a match. Queued tracks

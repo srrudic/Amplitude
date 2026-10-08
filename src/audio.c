@@ -3,6 +3,7 @@
 #include "codec.h"
 #include "platform.h"
 #include "stream.h"
+#include "cd.h"
 #include "util.h"
 
 /* Only the device and decoding parts of miniaudio are needed. */
@@ -549,6 +550,24 @@ int audio_init(void)
     return have_device;
 }
 
+static ma_result nothing_to_read(ma_decoder *decoder, void *out, size_t size, size_t *bytes_read)
+{
+    (void)decoder;
+    (void)out;
+    (void)size;
+    if (bytes_read)
+        *bytes_read = 0;
+    return MA_AT_END;
+}
+
+static ma_result nothing_to_seek(ma_decoder *decoder, ma_int64 offset, ma_seek_origin origin)
+{
+    (void)decoder;
+    (void)offset;
+    (void)origin;
+    return MA_ERROR;
+}
+
 /* Opens a file into a slot the audio thread is not using. */
 static int open_slot(Slot *slot, const char *path)
 {
@@ -561,7 +580,10 @@ static int open_slot(Slot *slot, const char *path)
     config.customBackendCount = sizeof custom_backends / sizeof custom_backends[0];
     config.pCustomBackendUserData = (void *)path;
     config.seekPointCount = SEEK_POINTS;
-    if (ma_decoder_init_vfs(&file_vfs, path, &config, &slot->decoder) != MA_SUCCESS)
+    /* A CD track is no file for miniaudio to open: only our codec, which
+     * goes by the path alone, can do anything with it. */
+    if ((path_is_cd(path) ? ma_decoder_init(nothing_to_read, nothing_to_seek, NULL, &config, &slot->decoder)
+                          : ma_decoder_init_vfs(&file_vfs, path, &config, &slot->decoder)) != MA_SUCCESS)
         return 0;
 
     slot->rate = OUT_RATE;

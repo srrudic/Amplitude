@@ -29,9 +29,9 @@ VERSION        := 0.2.0
 RELEASE_DATE   := 2026-10-04
 DEB_MAINTAINER ?= Srđan Rudić <blaster7th@gmail.com>
 
-COMMON_SRC := main.c config.c tags.c presets.c theme.c playlist.c ui.c ui_eq.c ui_playlist.c ui_jump.c ui_about.c ui_url.c ui_dialog.c ui_menu.c gfx.c font_data.c audio.c stream.c \
+COMMON_SRC := main.c config.c tags.c presets.c theme.c playlist.c ui.c ui_eq.c ui_playlist.c ui_jump.c ui_about.c ui_url.c ui_dialog.c ui_menu.c gfx.c font_data.c audio.c stream.c cd.c \
               skin.c skin_default.c zip.c \
-              codec.c codec_vorbis.c codec_opus.c codec_aac.c codec_mod.c
+              codec.c codec_vorbis.c codec_opus.c codec_aac.c codec_mod.c codec_cd.c
 HEADERS    := $(wildcard src/*.h)
 
 CFLAGS  ?= -Os
@@ -102,7 +102,7 @@ objects = $(patsubst %.c,$(1)/%.o,$(COMMON_SRC) $(2)) $(patsubst %.c,$(1)/tp/%.o
 
 # --- Linux ------------------------------------------------------------------
 LINUX_DIR  := build/linux
-LINUX_OBJ  := $(call objects,$(LINUX_DIR),platform_x11.c mpris.c net_posix.c icon_data.c)
+LINUX_OBJ  := $(call objects,$(LINUX_DIR),platform_x11.c mpris.c net_posix.c cd_linux.c icon_data.c)
 # X11 headers are bundled and the program links against the runtime library
 # that every desktop has, so no development package is needed. With
 # libx11-dev installed, "make X11_CFLAGS= X11_LIBS=-lX11" uses the system's.
@@ -135,8 +135,8 @@ export PATH := $(LOCAL_MINGW):$(PATH)
 endif
 WIN_DIR   := build/win32
 WIN64_DIR := build/win64
-WIN_OBJ   := $(call objects,$(WIN_DIR),platform_win32.c net_win32.c) $(WIN_DIR)/resources.o
-WIN64_OBJ := $(call objects,$(WIN64_DIR),platform_win32.c net_win32.c) $(WIN64_DIR)/resources.o
+WIN_OBJ   := $(call objects,$(WIN_DIR),platform_win32.c net_win32.c cd_win32.c) $(WIN_DIR)/resources.o
+WIN64_OBJ := $(call objects,$(WIN64_DIR),platform_win32.c net_win32.c cd_win32.c) $(WIN64_DIR)/resources.o
 WIN_LIBS := -lgdi32 -lcomdlg32 -lshell32
 WIN_LDFLAGS := -mwindows -static-libgcc
 # No -fdata-sections here: on PE targets it moves zero-initialised data out
@@ -248,8 +248,8 @@ deb: linux
 # undefined-behaviour sanitizers, against the normal third-party objects.
 TEST_DIR    := build/test
 TEST_CFLAGS := -g -O1 -std=gnu99 -Wall -Wextra -fsanitize=address,undefined -Isrc -Itests
-TEST_NAMES  := test_gfx test_data test_tags test_skin test_render test_codecs test_audio test_stream
-TEST_CORE   := $(patsubst %.c,$(TEST_DIR)/core/%.o,$(filter-out main.c,$(COMMON_SRC))) $(TEST_DIR)/core/stubs.o $(TEST_DIR)/core/net_posix.o
+TEST_NAMES  := test_gfx test_data test_tags test_skin test_render test_codecs test_audio test_stream test_cd
+TEST_CORE   := $(patsubst %.c,$(TEST_DIR)/core/%.o,$(filter-out main.c,$(COMMON_SRC))) $(TEST_DIR)/core/stubs.o $(TEST_DIR)/core/net_posix.o $(TEST_DIR)/core/cd_linux.o
 TEST_TP     := $(patsubst %.c,$(LINUX_DIR)/tp/%.o,$(TP_SRC))
 
 $(TEST_DIR)/core/%.o: src/%.c $(HEADERS)
@@ -274,7 +274,7 @@ AUDIO_TEST_ENV ?=
 
 test: $(TEST_NAMES:%=$(TEST_DIR)/%)
 	@for t in $(TEST_NAMES); do echo "$$t"; \
-	    if [ $$t = test_audio ] || [ $$t = test_stream ]; then env $(AUDIO_TEST_ENV) $(TEST_DIR)/$$t tests/media || exit 1; \
+	    if [ $$t = test_audio ] || [ $$t = test_stream ] || [ $$t = test_cd ]; then env $(AUDIO_TEST_ENV) $(TEST_DIR)/$$t tests/media || exit 1; \
 	    else $(TEST_DIR)/$$t tests/media || exit 1; fi; \
 	done; echo "all tests passed"
 
@@ -299,7 +299,7 @@ fonts:
 
 # The images in website/img: screenshots rendered by the player's own drawing
 # code (no display needed), plus the background, link preview and logo copies.
-WEBSHOT_SRC := tools/webshots.c tests/stubs.c $(addprefix src/,ui.c ui_eq.c ui_playlist.c ui_jump.c ui_dialog.c \
+WEBSHOT_SRC := tools/webshots.c tests/stubs.c src/cd.c src/cd_linux.c $(addprefix src/,ui.c ui_eq.c ui_playlist.c ui_jump.c ui_dialog.c \
     ui_menu.c playlist.c tags.c theme.c gfx.c font_data.c skin.c skin_default.c zip.c)
 
 website: $(WEBSHOT_SRC)

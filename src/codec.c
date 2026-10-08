@@ -1,4 +1,5 @@
 #include "codec.h"
+#include "cd.h"
 #include "platform.h"
 #include "util.h"
 
@@ -8,9 +9,12 @@
 int codec_open(const char *path, Codec *codec)
 {
     unsigned char head[64];
-    FILE *f = plat_fopen(path, "rb");
+    FILE *f;
     size_t got;
 
+    if (path_is_cd(path))
+        return codec_open_cd(path, codec);
+    f = plat_fopen(path, "rb");
     if (!f)
         return 0;
     memset(head, 0, sizeof head);

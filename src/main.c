@@ -1,4 +1,5 @@
 #include "audio.h"
+#include "cd.h"
 #include "config.h"
 #include "platform.h"
 #include "playlist.h"
@@ -128,7 +129,7 @@ enum {
     CMD_SELECT_ALL, CMD_SELECT_NONE, CMD_SELECT_INVERT,
     CMD_SORT_TITLE, CMD_SORT_FILENAME, CMD_SORT_PATH, CMD_REVERSE, CMD_RANDOMIZE,
     CMD_LIST_NEW, CMD_LIST_OPEN, CMD_LIST_SAVE, CMD_ABOUT, CMD_SKIN_LOAD,
-    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR, CMD_JUMP, CMD_OPEN_URL,
+    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR, CMD_JUMP, CMD_OPEN_URL, CMD_PLAY_CD, CMD_ADD_CD,
     CMD_SIZE_FIRST = 1500,      /* + index into size_choices */
     CMD_PRESET_FIRST = 1600,    /* + index into presets */
     CMD_COLOR_FIRST = 1700,     /* + index into theme_presets */
@@ -510,7 +511,9 @@ static void track_started(int index)
     if (length > 0)
         playlist_set_length(index, (int)length);
     show_title();
-    if (length > 0)
+    if (path_is_cd(track->path))
+        track_kbps = CD_RATE * 2 * 16 / 1000;       /* always the same on a CD */
+    else if (length > 0)
         track_kbps = (int)((double)file_size(track->path) * 8.0 / length / 1000.0 + 0.5);
     scroll_into_view(index);
     queue_dirty = 1;
@@ -659,9 +662,10 @@ static void remove_missing(void)
     int i;
 
     for (i = playlist_count() - 1; i >= 0; i--) {
-        FILE *f = path_is_url(playlist_get(i)->path) ? NULL : plat_fopen(playlist_get(i)->path, "rb");
+        const char *path = playlist_get(i)->path;
+        FILE *f = path_is_url(path) || path_is_cd(path) ? NULL : plat_fopen(path, "rb");
 
-        if (path_is_url(playlist_get(i)->path))
+        if (path_is_url(path) || path_is_cd(path))
             continue;       /* not a file; whether it answers is not checked here */
         if (f)
             fclose(f);
@@ -840,6 +844,67 @@ static int is_audio_file(const char *path)
     return 0;
 }
 
+/* Adds the audio tracks of the disc in a drive, or of a disc image (a CUE
+ * sheet). Returns the playlist index of the first, or -1 if there is no
+ * such disc. */
+static int add_cd(const char *device)
+{
+    Cd *cd = cd_open(device);
+    const CdToc *toc;
+    int i, first = -1;
+
+    if (!cd)
+        return -1;
+    toc = cd_toc(cd);
+    for (i = 0; i < toc->count; i++) {
+        char path[CD_DEVICE_MAX + 32];
+        int index;
+
+        if (!toc->track[i].audio)
+            continue;
+        cd_make_path(path, sizeof path, device, toc->track[i].number);
+        index = playlist_add(path);
+        if (index < 0)
+            break;
+        playlist_set_length(index, (int)(toc->track[i].sectors / CD_SECTORS_PER_S));
+        if (first < 0)
+            first = index;
+    }
+    cd_close(cd);
+    queue_dirty = 1;
+    return first;
+}
+
+/* Windows shows the tracks of an audio CD as files, "D:\Track03.cda": a
+ * few bytes each that say which track is meant. */
+static void add_cda(const char *path)
+{
+    unsigned char head[24];
+    char device[3] = { path[0], ':', '\0' }, track[32];
+    FILE *f = plat_fopen(path, "rb");
+    size_t got = f ? fread(head, 1, sizeof head, f) : 0;
+
+    if (f)
+        fclose(f);
+    if (got != sizeof head || memcmp(head, "RIFF", 4) != 0 || memcmp(head + 8, "CDDA", 4) != 0 || path[1] != ':')
+        return;
+    cd_make_path(track, sizeof track, device, head[22] | head[23] << 8);
+    playlist_add(track);
+}
+
+/* The disc in the first drive that has one: its tracks join the playlist,
+ * and with `play` the first of them starts. */
+static void open_cd(int play)
+{
+    char device[PLAT_CD_NAME];
+    int first = cd_find_disc(device, sizeof device) ? add_cd(device) : -1;
+
+    if (first < 0)
+        snprintf(title, sizeof title, "NO AUDIO CD FOUND");
+    else if (play)
+        play_track(first);
+}
+
 /* A station's .pls file: "File1=address" lines, among others. */
 static void add_pls(const char *path, int depth)
 {
@@ -871,7 +936,7 @@ static void add_path(const char *path, int depth)
         set_skin(path);
         return;
     }
-    if (path_is_url(path)) {        /* a station or a file on the web: taken as it is */
+    if (path_is_url(path) || path_is_cd(path)) {    /* a station, a file on the web, a CD track: taken as it is */
         playlist_add(path);
         queue_dirty = 1;
         return;
@@ -896,6 +961,10 @@ static void add_path(const char *path, int depth)
         free(list.items);
     } else if (path_has_extension(full, ".m3u") || path_has_extension(full, ".m3u8")) {
         playlist_load(full, NULL);
+    } else if (path_has_extension(full, ".cue")) {
+        add_cd(full);       /* an image of a disc */
+    } else if (path_has_extension(full, ".cda")) {
+        add_cda(full);
     } else {
         playlist_add(full);
     }
@@ -1434,6 +1503,7 @@ static void open_menu(int which)
         menu_add("Add files...", CMD_ADD_FILES, 0);
         menu_add("Add folder...", CMD_ADD_FOLDER, 0);
         menu_add("Add location...", CMD_OPEN_URL, 0);
+        menu_add("Add audio CD", CMD_ADD_CD, 0);
     } else if (which == MENU_REMOVE) {
         menu_add("Remove selected", CMD_REMOVE_SELECTED, 0);
         menu_add("Crop to selected", CMD_CROP, 0);
@@ -1475,6 +1545,7 @@ static void open_menu(int which)
         menu_add("Add files...", CMD_ADD_FILES, 0);
         menu_add("Add folder...", CMD_ADD_FOLDER, 0);
         menu_add("Open location... (Ctrl+L)", CMD_OPEN_URL, 0);
+        menu_add("Play audio CD", CMD_PLAY_CD, 0);
         menu_add("Jump to file... (Ctrl+J)", CMD_JUMP, 0);
         menu_add(NULL, 0, 0);
         menu_add("Equalizer", CMD_EQ, wins[WIN_EQ].visible);
@@ -1685,6 +1756,10 @@ static void do_action(int element)
         break;
     case CMD_OPEN_URL:
         open_url_window();
+        break;
+    case CMD_PLAY_CD:
+    case CMD_ADD_CD:
+        open_cd(element == CMD_PLAY_CD);
         break;
     case UI_URL_OPEN:
         url_accept();

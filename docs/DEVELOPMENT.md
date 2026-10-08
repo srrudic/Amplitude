@@ -404,6 +404,18 @@ the source is to that format.
   file on the web is another matter: minimp4 wants to seek in it, so it
   does not play. `tests/test_stream.c` runs all of this against
   `tests/stream_server.py`.
+- **`cd.c`** knows audio CDs: the track list of a disc and its raw
+  sectors. The drive itself is the platform's (`cd_linux.c` uses the
+  kernel's CD-ROM ioctls, `cd_win32.c` opens `\\.\D:` and uses
+  `DeviceIoControl`, which needs nothing beyond kernel32 but exists only on
+  the NT line). A track is written as a path, `cdda://<device>/<number>`,
+  and from there on is a file like any other: `codec_open` hands such
+  paths to `codec_cd.c`, whose reader thread keeps four seconds read
+  ahead so that the audio thread never waits for the drive. Instead of a
+  device the path may name a CUE sheet with one raw `.bin` file; `cd.c`
+  reads those itself. That is a small feature in its own right, and it is
+  how everything but the two drive files is tested without a drive
+  (`tests/test_cd.c` makes such an image).
 - **`mpris.c`** (Linux) answers the desktop's media controls. Modern
   desktops own the media keys and pass them to players over D-Bus, so this
   is what makes keyboard media keys and Bluetooth headphone buttons work.

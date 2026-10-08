@@ -166,9 +166,9 @@ H-22; SEL 82, H-22; MISC 111, H-22; LIST W-36, H-22; first row 100, 27, then
 previous W-143, play W-134, pause W-125, stop W-116, next W-107, open W-98.
 
 Main menu at 100% (popup window, empty title; rows are 13 high, separators
-5): Add files 8, Add folder 21, Open location 34, Jump to file 47, Equalizer 65,
-Playlist 78, Shuffle 96, Repeat 109, Skins 127, Size 140, Color 153, About 171,
-Exit 184 (all at
+5): Add files 8, Add folder 21, Open location 34, Play audio CD 47, Jump to file 60,
+Equalizer 78, Playlist 91, Shuffle 109, Repeat 122, Skins 140, Size 153, Color 166,
+About 184, Exit 197 (all at
 x = 30). Submenus start with "< Back" at y 8, a separator, then entries from
 y 26 in steps of 13.
 
@@ -485,6 +485,33 @@ addresses, WinINet for secure ones, both loaded when the first stream opens.
 - **T9** *(XP, by hand)* T3 should work there too; T4 probably will not,
   because XP's encryption is too old for most servers. Note what is shown.
 
+### 4.15 Audio CDs *(added later; needs a drive and a disc; not yet run anywhere)*
+
+`src/cd_win32.c` (and `src/cd_linux.c`) have only been compiled: no machine
+they were written on had a drive. Everything above them is tested with a
+disc image, so what remains to be seen is the drive itself.
+
+- **C1** With an audio CD in the drive, "Play audio CD" in the menu: the
+  playlist gains one "CD Track NN" entry per track with the right lengths
+  (compare with another player), and track 1 starts within a few seconds.
+- **C2** The sound is clean: no clicks, no stutter, right speed and pitch,
+  left and right not swapped. The bitrate reads 1411.
+- **C3** Seek around within a track and jump between tracks; each takes
+  at most a moment. Let one track run into the next: no gap, no click.
+- **C4** Pause for a minute (the drive may spin down) and resume.
+- **C5** In Explorer, open the disc and drop "Track02.cda" on the player,
+  and double-click one if .cda is associated: that track is added.
+- **C6** Eject the disc while it plays: sound stops, or silence follows;
+  the player must not hang, and Next must still work. Then "Play audio
+  CD" with the tray empty: the display says "NO AUDIO CD FOUND".
+- **C7** A data CD or DVD in the drive: "NO AUDIO CD FOUND". A mixed disc
+  (music plus a data track), if one is at hand: only the music is listed,
+  and the last music track ends where it should.
+- **C8** Close the player while a CD track plays: the process ends at once.
+- **C9** *(Linux)* The same as C1 to C8; the drive is `/dev/sr0`. If
+  nothing is found, check that `ls -l /dev/sr0` shows the user may read it.
+- **C10** A disc image: drop a `.cue` with one `.bin` on the player.
+
 ## 5. What only the user can check
 
 Collected from above, for one sitting: U6 (dialogs, drag and drop), P6
@@ -543,7 +570,7 @@ change.
 | W2 | pass | Right click at 150, 50: menu's corner exactly there. Cog: menu under it. A click outside closes it, both times. |
 | W3 | pass | Done by script, since the machine has two monitors (layout set in the ini). Player on the second monitor: both menus open there, also at its right edge and its bottom. Player at the bottom of either monitor: the menu is moved up to end exactly at the work area (1008 on the primary), clear of the taskbar. |
 | W4 | pass | ADD, REM, SEL, MISC, LIST each open their menu directly above the button row. |
-| W5 | pass, link not run | About shows "Version 0.1.1", the author and the link; Escape closes it. Clicking the link needs the user. |
+| W5 | pass, link not run | About shows "Version 0.2.0", the author and the link; Escape closes it. Clicking the link needs the user. |
 | W6 | pass | J opens the window with an empty box (posted and real key press); "tone" narrows 15 tracks to "15. long-tone"; Enter plays it and closes the window. |
 | W7 | pass | Minimise: only the minimised main window is left; restore brings all three back where they were. |
 | L1 | pass | All, none, invert (one row left out). |
