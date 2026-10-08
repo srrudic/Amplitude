@@ -3,7 +3,7 @@
 # ignore this file. Keep the types in step with amplitude.desktop.
 [Desktop Entry]
 Type=Service
-MimeType=audio/mpeg;audio/flac;audio/x-flac;audio/wav;audio/x-wav;audio/ogg;audio/x-vorbis+ogg;audio/x-opus+ogg;audio/mp4;audio/x-m4a;audio/aac;audio/x-mod;audio/x-xm;audio/x-s3m;audio/x-it;audio/x-mpegurl;inode/directory;
+MimeType=audio/mpeg;audio/mp3;audio/flac;audio/x-flac;audio/wav;audio/x-wav;audio/vnd.wave;audio/ogg;application/ogg;audio/x-vorbis+ogg;audio/x-opus+ogg;audio/opus;audio/mp4;audio/x-m4a;audio/x-m4b;audio/aac;audio/x-mod;audio/x-xm;audio/x-s3m;audio/x-it;audio/x-mpegurl;audio/mpegurl;audio/x-scpls;application/x-cue;inode/directory;
 Actions=enqueue
 X-KDE-Priority=TopLevel
 
