@@ -510,6 +510,11 @@ disc image, so what remains to be seen is the drive itself.
 - **C8** Close the player while a CD track plays: the process ends at once.
 - **C9** *(Linux)* The same as C1 to C8; the drive is `/dev/sr0`. If
   nothing is found, check that `ls -l /dev/sr0` shows the user may read it.
+- **C11** *(Windows 98, by hand)* C1 to C8 there. This is the ASPI path,
+  which no other system uses. Note which ASPI is installed (the one that
+  came with Windows, or Nero's or Adaptec's) and whether "Play audio CD"
+  finds the disc. With two CD drives, check that a track dropped from the
+  second drive's Explorer window plays from that drive and not the first.
 - **C10** A disc image: drop a `.cue` with one `.bin` on the player.
 
 ## 5. What only the user can check

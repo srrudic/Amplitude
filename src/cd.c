@@ -71,11 +71,17 @@ static int open_image(Cd *cd, const char *sheet)
             track->audio = strcmp(word, "AUDIO") == 0;
             track->start = -1;
         } else if (strcmp(word, "INDEX") == 0 && toc->count) {
-            int minutes, seconds, frames;
+            char *seconds, *frames;
 
             p = cue_word(p, word, sizeof word);
-            if (atoi(word) == 1 && sscanf(p, " %d:%d:%d", &minutes, &seconds, &frames) == 3)
-                toc->track[toc->count - 1].start = ((long)minutes * 60 + seconds) * CD_SECTORS_PER_S + frames;
+            if (atoi(word) != 1)
+                continue;
+            cue_word(p, word, sizeof word);         /* "mm:ss:ff" */
+            seconds = strchr(word, ':');
+            frames = seconds ? strchr(seconds + 1, ':') : NULL;
+            if (frames)
+                toc->track[toc->count - 1].start =
+                    ((long)atoi(word) * 60 + atoi(seconds + 1)) * CD_SECTORS_PER_S + atoi(frames + 1);
         }
     }
     fclose(f);

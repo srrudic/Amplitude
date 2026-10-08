@@ -408,7 +408,8 @@ the source is to that format.
   sectors. The drive itself is the platform's (`cd_linux.c` uses the
   kernel's CD-ROM ioctls, `cd_win32.c` opens `\\.\D:` and uses
   `DeviceIoControl`, which needs nothing beyond kernel32 but exists only on
-  the NT line). A track is written as a path, `cdda://<device>/<number>`,
+  the NT line; on Windows 9x it sends SCSI commands through ASPI instead,
+  loading `wnaspi32.dll` on first use). A track is written as a path, `cdda://<device>/<number>`,
   and from there on is a file like any other: `codec_open` hands such
   paths to `codec_cd.c`, whose reader thread keeps four seconds read
   ahead so that the audio thread never waits for the drive. Instead of a

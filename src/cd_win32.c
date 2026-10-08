@@ -1,7 +1,16 @@
-/* CD drives on Windows (see cd.h): the drive is opened as a device and asked
- * for its table of contents and for raw sectors. That is how Windows NT and
- * everything since does it; Windows 95, 98 and Me have no such interface,
- * so audio CDs do not play there. Only kernel32 is needed. */
+/* CD drives on Windows (see cd.h), in two ways.
+ *
+ * Windows NT and everything since: the drive is opened as a device and
+ * asked for its table of contents and for raw sectors. Only kernel32 is
+ * needed.
+ *
+ * Windows 95, 98 and Me have no such interface. There the drive is given
+ * SCSI commands through ASPI, a library (wnaspi32.dll) that those systems
+ * have in a basic form and that CD writing programs replaced with a better
+ * one. It is loaded when a CD is first asked for; without it, audio CDs do
+ * not play there. ASPI numbers devices by adapter and target and knows
+ * nothing of drive letters, so the first CD drive it lists is taken to be
+ * the first drive letter that is a CD drive, and so on. */
 #include "cd.h"
 
 #include <stdio.h>
@@ -33,8 +42,130 @@ typedef struct {
 } RawRead;
 
 struct PlatCd {
-    HANDLE drive;
+    HANDLE drive;                       /* INVALID_HANDLE_VALUE when ASPI is used: */
+    BYTE adapter, target;
 };
+
+/* --- ASPI ------------------------------------------------------------------- */
+
+#define ASPI_GET_DEVICE_TYPE 1
+#define ASPI_EXECUTE         2
+#define ASPI_PENDING         0
+#define ASPI_DONE            1
+#define ASPI_DATA_IN         0x08
+#define ASPI_TYPE_CDROM      5
+#define ASPI_TARGETS         8
+#define ASPI_SENSE           14
+#define ASPI_TIMEOUT_MS      15000
+#define SCSI_READ_TOC        0x43
+#define SCSI_READ_CD         0xBE
+
+#pragma pack(push, 1)
+typedef struct {
+    BYTE command, status, adapter, flags;
+    DWORD reserved;
+    BYTE target, lun, type, reserved1;
+} AspiDeviceType;
+
+typedef struct {
+    BYTE command, status, adapter, flags;
+    DWORD reserved;
+    BYTE target, lun;
+    WORD reserved1;
+    DWORD length;
+    BYTE *buffer;
+    BYTE sense_length, cdb_length, adapter_status, target_status;
+    void *post;
+    BYTE reserved2[20];
+    BYTE cdb[16];
+    BYTE sense[ASPI_SENSE + 2];
+} AspiExecute;
+#pragma pack(pop)
+
+static DWORD (__cdecl *aspi_info)(void);
+static DWORD (__cdecl *aspi_send)(void *request);
+
+/* Is this Windows 95, 98 or Me, with a working ASPI? Returns the number of
+ * adapters, 0 if not. */
+static int aspi_adapters(void)
+{
+    static int count = -1;
+
+    if (count < 0) {
+        HMODULE library = (GetVersion() & 0x80000000u) ? LoadLibraryA("wnaspi32.dll") : NULL;
+        DWORD info;
+
+        count = 0;
+        if (library) {
+            FARPROC get = GetProcAddress(library, "GetASPI32SupportInfo");
+            FARPROC send = GetProcAddress(library, "SendASPI32Command");
+
+            memcpy(&aspi_info, &get, sizeof get);
+            memcpy(&aspi_send, &send, sizeof send);
+            info = get && send ? aspi_info() : 0;
+            if (((info >> 8) & 0xFF) == ASPI_DONE)
+                count = (int)(info & 0xFF);
+        }
+    }
+    return count;
+}
+
+/* Finds the CD drive that ASPI lists in place `rank` (from 0). */
+static int aspi_find(int rank, BYTE *adapter, BYTE *target)
+{
+    int a, t, adapters = aspi_adapters();
+
+    for (a = 0; a < adapters; a++)
+        for (t = 0; t < ASPI_TARGETS; t++) {
+            AspiDeviceType request;
+
+            memset(&request, 0, sizeof request);
+            request.command = ASPI_GET_DEVICE_TYPE;
+            request.adapter = (BYTE)a;
+            request.target = (BYTE)t;
+            aspi_send(&request);
+            if (request.status == ASPI_DONE && request.type == ASPI_TYPE_CDROM && rank-- == 0) {
+                *adapter = (BYTE)a;
+                *target = (BYTE)t;
+                return 1;
+            }
+        }
+    return 0;
+}
+
+/* Sends the drive a command that returns data. */
+static int aspi_command(PlatCd *cd, const BYTE *cdb, int cdb_length, void *out, DWORD size)
+{
+    AspiExecute *request = calloc(1, sizeof *request);
+    int waited, done;
+
+    if (!request)
+        return 0;
+    request->command = ASPI_EXECUTE;
+    request->adapter = cd->adapter;
+    request->target = cd->target;
+    request->flags = ASPI_DATA_IN;
+    request->length = size;
+    request->buffer = out;
+    request->sense_length = ASPI_SENSE;
+    request->cdb_length = (BYTE)cdb_length;
+    memcpy(request->cdb, cdb, (size_t)cdb_length);
+    aspi_send(request);
+    for (waited = 0; request->status == ASPI_PENDING && waited < ASPI_TIMEOUT_MS; waited++)
+        Sleep(1);
+    if (request->status == ASPI_PENDING)
+        return 0;       /* still ASPI's to write to, so it is not freed */
+    done = request->status == ASPI_DONE;
+    free(request);
+    return done;
+}
+
+/* --- The interface ------------------------------------------------------------ */
+
+static int uses_aspi(const PlatCd *cd)
+{
+    return cd->drive == INVALID_HANDLE_VALUE;
+}
 
 int plat_cd_drives(char names[][PLAT_CD_NAME], int max)
 {
@@ -64,15 +195,24 @@ PlatCd *plat_cd_open(const char *device)
     if (!device[0] || device[1] != ':' || device[2])
         return NULL;
     snprintf(name, sizeof name, "\\\\.\\%c:", device[0]);
+    cd = calloc(1, sizeof *cd);
+    if (!cd)
+        return NULL;
     drive = CreateFileA(name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-    if (drive == INVALID_HANDLE_VALUE)
-        return NULL;
-    cd = malloc(sizeof *cd);
-    if (!cd) {
-        CloseHandle(drive);
-        return NULL;
-    }
     cd->drive = drive;
+    if (drive == INVALID_HANDLE_VALUE) {
+        /* Not possible on Windows 95, 98 and Me: ASPI instead, where the
+         * drive is found by its place among the CD drives. */
+        char names[26][PLAT_CD_NAME];
+        int count = aspi_adapters() ? plat_cd_drives(names, 26) : 0, rank;
+
+        for (rank = 0; rank < count && (names[rank][0] | 0x20) != (device[0] | 0x20); rank++)
+            ;
+        if (rank >= count || !aspi_find(rank, &cd->adapter, &cd->target)) {
+            free(cd);
+            return NULL;
+        }
+    }
     return cd;
 }
 
@@ -88,8 +228,16 @@ int plat_cd_toc(PlatCd *cd, CdToc *toc)
     int i, tracks;
 
     memset(&raw, 0, sizeof raw);
-    if (!DeviceIoControl(cd->drive, CD_IOCTL_READ_TOC, NULL, 0, &raw, sizeof raw, &got, NULL))
+    if (uses_aspi(cd)) {
+        /* The same table, in the same layout, straight from the drive
+         * (the 2 asks for positions as minutes, seconds and sectors). */
+        BYTE cdb[10] = { SCSI_READ_TOC, 0x02, 0, 0, 0, 0, 0, (BYTE)(sizeof raw >> 8), (BYTE)sizeof raw, 0 };
+
+        if (!aspi_command(cd, cdb, sizeof cdb, &raw, sizeof raw))
+            return 0;
+    } else if (!DeviceIoControl(cd->drive, CD_IOCTL_READ_TOC, NULL, 0, &raw, sizeof raw, &got, NULL)) {
         return 0;
+    }
     tracks = raw.last - raw.first + 1;
     if (tracks < 1 || tracks > CD_MAX_TRACKS)
         return 0;
@@ -113,6 +261,13 @@ int plat_cd_read(PlatCd *cd, long sector, int count, void *out)
     RawRead request;
     DWORD got = 0;
 
+    if (uses_aspi(cd)) {
+        /* READ CD: any kind of sector, the 2352 bytes of user data only. */
+        BYTE cdb[12] = { SCSI_READ_CD, 0, (BYTE)(sector >> 24), (BYTE)(sector >> 16), (BYTE)(sector >> 8), (BYTE)sector,
+                         (BYTE)(count >> 16), (BYTE)(count >> 8), (BYTE)count, 0x10, 0, 0 };
+
+        return aspi_command(cd, cdb, sizeof cdb, out, (DWORD)count * CD_SECTOR);
+    }
     memset(&request, 0, sizeof request);
     request.offset.QuadPart = (LONGLONG)sector * 2048;
     request.sectors = (ULONG)count;
@@ -123,6 +278,7 @@ int plat_cd_read(PlatCd *cd, long sector, int count, void *out)
 
 void plat_cd_close(PlatCd *cd)
 {
-    CloseHandle(cd->drive);
+    if (!uses_aspi(cd))
+        CloseHandle(cd->drive);
     free(cd);
 }

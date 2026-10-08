@@ -109,7 +109,10 @@ disc digitally, so the drive needs no cable to the sound card. On Linux
 your user must be allowed to read the drive, which desktop systems arrange
 by themselves; on Windows 2000 and later it just works, and in Explorer a
 track ("Track03.cda") can also be opened or dropped on the player.
-Windows 95, 98 and Me cannot do this. An image of a disc plays too: open
+On Windows 95, 98 and Me it goes through ASPI (`wnaspi32.dll`), which
+works best with the version that CD writing programs of the time, such as
+Nero or Adaptec's, installed; very old drives that cannot deliver sound
+digitally will not play. An image of a disc plays too: open
 or drop its `.cue` file, provided the image is one raw `.bin` file.
 
 **Play queue.** To hear something next without changing the list, queue
