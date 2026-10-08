@@ -16,6 +16,8 @@
  *   rclick W x y sx sy       right click; sx, sy is the screen position reported
  *   drag W x y dx dy         left-button drag by (dx, dy)
  *   menu x y                 click inside the open popup menu
+ *   focus W                  give a window the keyboard focus
+ *   unfocus                  take the focus away from the player
  *   drop W uri-list          drag and drop (file:// URIs separated by \r\n)
  *   wait ms
  *
@@ -369,6 +371,18 @@ int main(int argc, char **argv)
                      x - mark_x[ARG(1) & 3], y - mark_y[ARG(1) & 3]);
             check(x - mark_x[ARG(1) & 3] == ARG(2) && y - mark_y[ARG(1) & 3] == ARG(3), what);
             i += 3;
+        } else if (!strcmp(cmd, "focus")) {
+            /* Gives a window the keyboard focus; "unfocus" takes it away
+             * from the player, as a click on another program would. */
+            NEED(1);
+            XSetInputFocus(dpy, window(ARG(1)), RevertToPointerRoot, CurrentTime);
+            XSync(dpy, False);
+            pause_ms(200);
+            i += 1;
+        } else if (!strcmp(cmd, "unfocus")) {
+            XSetInputFocus(dpy, DefaultRootWindow(dpy), RevertToPointerRoot, CurrentTime);
+            XSync(dpy, False);
+            pause_ms(300);
         } else if (!strcmp(cmd, "popup")) {
             int want;
 

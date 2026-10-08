@@ -23,7 +23,8 @@ enum {
     PEV_WHEEL,
     PEV_KEY_DOWN,
     PEV_TEXT,       /* a character was typed (follows the PEV_KEY_DOWN of the key) */
-    PEV_FILE        /* a file was dropped on a window or sent by another instance */
+    PEV_FILE,       /* a file was dropped on a window or sent by another instance */
+    PEV_FOCUS_OUT   /* the user turned to another window or program */
 };
 
 /* Keys are reported as uppercase ASCII where possible, otherwise PK_*. */

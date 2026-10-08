@@ -272,7 +272,7 @@ static PlatWindow *create_window(const char *title, int w, int h, int scale, int
     make_image(win);
 
     XSelectInput(dpy, win->xwin, ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
-                                 KeyPressMask | StructureNotifyMask | PropertyChangeMask);
+                                 KeyPressMask | StructureNotifyMask | PropertyChangeMask | FocusChangeMask);
     win->next = windows;
     windows = win;
     XChangeProperty(dpy, win->xwin, XInternAtom(dpy, "_NET_WM_PID", False), XA_CARDINAL, 32,
@@ -757,6 +757,18 @@ int plat_poll_event(PlatEvent *ev)
 
                 XTranslateCoordinates(dpy, ev->win->xwin, DefaultRootWindow(dpy), 0, 0,
                                       &ev->win->x, &ev->win->y, &child);
+            }
+            break;
+        case FocusOut:
+            /* The popup menu holds the pointer so as to see clicks outside
+             * it and close; but under Wayland (and on some desktops) a
+             * click on another program's window never reaches us. Losing
+             * the keyboard focus is what remains to go by. (Focus that only
+             * moves because of a grab does not count.) */
+            if (xev.xfocus.mode != NotifyGrab && xev.xfocus.mode != NotifyUngrab &&
+                xev.xfocus.detail != NotifyInferior && xev.xfocus.detail != NotifyPointer) {
+                ev->type = PEV_FOCUS_OUT;
+                return 1;
             }
             break;
         case ClientMessage:

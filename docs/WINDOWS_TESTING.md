@@ -370,6 +370,11 @@ window to the screen and has never run. Look hard here.
 - **W5** Click the logo: the About window opens with version, author and
   the link. Escape closes it. *(User:)* clicking the link opens
   https://amplitude.cr.rs in the browser.
+- **W8** *(added for the second run; needs the user or real input)* Open
+  the right-click menu, then click on another program's window or on the
+  desktop: the menu closes. Before, it stayed open on top of everything.
+  (Posted messages cannot show this: the menu closes when Windows tells
+  the player that another program was activated.)
 - **W6** Press J (or Ctrl+J) in the main window: jump to file opens. Type
   part of a title with `Send-AmpText`; the list narrows; Enter plays it.
   Known limit: text typed here is limited to the system code page.

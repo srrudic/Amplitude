@@ -2050,6 +2050,10 @@ static void handle_event(const PlatEvent *ev)
 {
     int win = window_index(ev->win), slider = 0, before;
 
+    if (ev->type == PEV_FOCUS_OUT) {
+        close_menu();       /* a click elsewhere may never be reported; see the platform layers */
+        return;
+    }
     if (menu_win) {
         if (ev->win == menu_win) {
             int item = menu_item_at(menu_items, menu_count, menu_w, ev->x, ev->y);

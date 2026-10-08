@@ -81,6 +81,9 @@ drive click 2 100 37 0  click 2 100 47 1  key 2 Delete 0         # rows 2 and 3 
 echo "--- menus: right click, outside click closes, ADD > folder"
 drive rclick 0 50 50 500 300  popup yes  menu 400 5  popup no
 drive click 0 225 97 0  popup yes  menu 400 5  popup no           # the cog opens the same menu
+# Turning to another program closes the menu: under Wayland the click there
+# is never reported to the player, only the loss of focus is.
+drive focus 0  rclick 0 50 50 500 300  popup yes  unfocus  popup no
 
 echo "--- about: a click on the logo opens it, Escape closes it"
 drive hidden 4  click 0 255 96 0  size 4 250 138  key 4 Escape 0  hidden 4

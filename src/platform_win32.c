@@ -250,6 +250,14 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpar
         ev.type = PEV_QUIT;
         push_event(&ev);
         return 0;
+    case WM_ACTIVATEAPP:
+        /* Another program came to the front: a click there takes the mouse
+         * from the popup menu without the menu ever seeing it. */
+        if (!wparam) {
+            ev.type = PEV_FOCUS_OUT;
+            push_event(&ev);
+        }
+        break;
     case WM_HOTKEY:
         if (wparam >= 1 && wparam <= (WPARAM)MEDIA_KEYS) {
             ev.type = PEV_KEY_DOWN;
