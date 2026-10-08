@@ -79,7 +79,12 @@ enum {
     /* About window */
     UI_ABOUT_TITLEBAR,
     UI_ABOUT_CLOSE,
-    UI_ABOUT_LINK           /* the website address */
+    UI_ABOUT_LINK,          /* the website address */
+    /* Open location window */
+    UI_URL_TITLEBAR,
+    UI_URL_CLOSE,
+    UI_URL_OPEN,
+    UI_URL_CANCEL
 };
 
 enum { VIS_SPECTRUM, VIS_SCOPE, VIS_OFF, VIS_MODES };
@@ -203,6 +208,15 @@ int  jump_row_at(int y);
 
 void about_draw(uint32_t *framebuffer, int scale, int pressed);
 int  about_hit(int x, int y);
+
+/* --- Open location window ------------------------------------------------- */
+
+#define URL_W     275
+#define URL_H     76
+
+/* `text` is the address typed so far (UTF-8); ticks blinks the cursor. */
+void url_draw(uint32_t *framebuffer, int scale, const char *text, int pressed, uint32_t ticks);
+int  url_hit(int x, int y);
 
 /* --- Popup menu ----------------------------------------------------------- */
 

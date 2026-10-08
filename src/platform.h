@@ -131,6 +131,34 @@ int  plat_open_folder_dialog(char *out, size_t out_size);
  * seconds. Cheap to call every frame. */
 void plat_media_update(int state, const char *title, double position, double length);
 
+/* --- Network and threads (net_posix.c, net_win32.c) --------------------------
+ * Just enough for stream.c to fetch audio over HTTP. Everything here blocks
+ * and is meant to be called from a thread of its own. */
+typedef struct PlatConn PlatConn;
+
+/* Connects to a host. `secure` asks for TLS, which is provided by whatever
+ * the system has (OpenSSL on Linux, loaded on demand); NULL if it cannot be
+ * done, for either reason. */
+PlatConn *plat_net_connect(const char *host, int port, int secure);
+/* Where the system can only fetch a secure address as a whole (Windows):
+ * sends a GET with the given extra request headers and returns a connection
+ * positioned at the body, with the response's header lines in `response`.
+ * NULL if not available, in which case plat_net_connect() is the way. */
+PlatConn *plat_https_get(const char *url, const char *request_headers, char *response, size_t response_size);
+int  plat_net_send(PlatConn *conn, const void *data, int size);     /* 1 if all was sent */
+int  plat_net_recv(PlatConn *conn, void *buffer, int size);         /* bytes; 0 at the end, < 0 on error */
+/* Makes a recv() that is waiting in another thread return at once. */
+void plat_net_abort(PlatConn *conn);
+void plat_net_close(PlatConn *conn);
+
+/* Runs fn(arg) in a new thread that cleans up after itself. Returns 0 if
+ * none could be started. */
+int  plat_thread_start(void (*fn)(void *), void *arg);
+void plat_sleep_ms(int ms);
+
+/* Text on the clipboard as UTF-8, for pasting. Returns 0 if there is none. */
+int  plat_clipboard_text(char *out, size_t out_size);
+
 /* Opens a web address in the user's browser. */
 void plat_open_url(const char *url);
 /* Asks where to save a playlist. Returns 0 if cancelled. The name comes

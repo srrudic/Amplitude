@@ -373,6 +373,37 @@ the source is to that format.
   encoding everywhere.
 - **`playlist.c`** owns the track array (path, title, length, selected flag)
   and reads and writes plain M3U.
+- **`stream.c`** fetches audio over HTTP: internet radio and files on web
+  servers. `stream_open` starts a thread that connects, follows redirects
+  and station playlist files, strips the stations' in-band metadata ("ICY")
+  and fills a ring buffer; nothing in it blocks the caller. The connections
+  themselves come from the platform (`net_posix.c`, `net_win32.c`), which is
+  also where TLS lives: OpenSSL loaded with `dlopen` on Linux, WinINet for
+  whole `https` addresses on Windows, both only when first needed, so
+  neither is a build or start-up requirement. In `audio.c` a stream fills a
+  decoder slot like a file, with three differences: `audio_open` returns at
+  once and `audio_update` (called every frame) sets the decoder up when
+  enough has arrived, reporting failure through `audio_take_failed`; the
+  audio thread decodes only while the buffer holds enough, so it never
+  waits for the network; and there is no length, seeking or gapless
+  hand-over. miniaudio's own decoders (MP3, FLAC, WAV) read from a stream
+  through its usual callbacks. Three of our codecs have a second way in
+  that takes a `CodecFeed` function instead of a path:
+  `codec_open_aac_stream` finds its way to a frame boundary and decodes
+  ADTS frames as they come; `codec_open_vorbis_stream` uses stb_vorbis's
+  push interface and follows the Ogg pages itself, so as to restart the
+  decoder when a station begins a new logical stream for the next song;
+  `codec_open_opus_stream` leaves that to opusfile. The Ogg ones report
+  the song from the stream's comments through `Codec.take_title`. Which
+  decoder a stream gets is decided in `stream_kind` (audio.c) from its
+  first bytes and its content type. HLS is handled entirely in `stream.c`
+  (`hls_run`): it fetches playlist and segments, takes the audio out of
+  transport stream packets or MP4 fragments where needed (giving each AAC
+  frame from an MP4 the ADTS header it lacks there), and writes it to the
+  same buffer, so the decoders see ordinary AAC or MP3. A whole `.m4a`
+  file on the web is another matter: minimp4 wants to seek in it, so it
+  does not play. `tests/test_stream.c` runs all of this against
+  `tests/stream_server.py`.
 - **`mpris.c`** (Linux) answers the desktop's media controls. Modern
   desktops own the media keys and pass them to players over D-Bus, so this
   is what makes keyboard media keys and Bluetooth headphone buttons work.
@@ -526,7 +557,7 @@ published to GitHub Pages whenever it changes. One-time setup:
 
 **A release**, by hand: commit, set `VERSION` and `RELEASE_DATE` in the
 Makefile, run `make dist`, create a GitHub Release whose tag is the bare
-version number (`0.1.1`, with no "v" in front) and attach the seven files
+version number (`0.2.0`, with no "v" in front) and attach the seven files
 from `build/dist/`. Then change the version in the download buttons of
 `website/index.html`, whose addresses have the form
 `https://github.com/srrudic/Amplitude/releases/download/<tag>/<file>`.

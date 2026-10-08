@@ -19,6 +19,8 @@ const Track *playlist_get(int index);
 int          playlist_add(const char *path);
 void         playlist_remove(int index);
 void         playlist_set_length(int index, int seconds);
+/* Replaces a track's title (a station's name, once it is known). */
+void         playlist_set_title(int index, const char *title);
 void         playlist_free(void);
 
 void         playlist_select(int index, int selected);

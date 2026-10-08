@@ -1,5 +1,5 @@
-/* AAC via libfaad2, from either an MP4/M4A container (demuxed with minimp4)
- * or a raw ADTS stream. */
+/* AAC via libfaad2, from an MP4/M4A container (demuxed with minimp4), a raw
+ * ADTS file, or ADTS frames arriving over the network. */
 #include "codec.h"
 #include "platform.h"
 
@@ -11,7 +11,9 @@
 #include <string.h>
 
 #define ADTS_HEADER_SIZE 7
+#define ADTS_MAX_FRAME   8191       /* the length field has 13 bits */
 #define MAX_BAD_FRAMES   32
+#define MAX_RESYNC_BYTES (64 * 1024)    /* searched for a frame before a stream is given up */
 
 typedef struct {
     FILE *file;
@@ -27,6 +29,11 @@ typedef struct {
     long data_start;            /* first frame, after any ID3v2 tag */
     long next_frame;            /* file offset of the next frame */
     unsigned frame_samples;     /* output frames per AAC frame: 1024, or 2048 with SBR */
+
+    /* Network stream */
+    CodecFeed feed;
+    void *feed_user;
+    size_t fed;                 /* bytes of a->frame filled so far */
 
     unsigned char *frame;       /* compressed frame being decoded */
     size_t frame_capacity;
@@ -68,6 +75,52 @@ static size_t adts_frame_size(FILE *f, long offset, unsigned char header[ADTS_HE
     return size < ADTS_HEADER_SIZE ? 0 : size;
 }
 
+static int adts_sync(const unsigned char *p)
+{
+    return p[0] == 0xFF && (p[1] & 0xF6) == 0xF0;
+}
+
+/* Tops a->frame up to `size` bytes from the network. Returns 0 if that much
+ * is not to be had now; what did arrive is kept for the next call. */
+static int feed_to(Aac *a, size_t size)
+{
+    if (a->fed < size)
+        a->fed += a->feed(a->feed_user, a->frame + a->fed, size - a->fed);
+    return a->fed >= size;
+}
+
+/* The next frame of a network stream, left at the start of a->frame. A
+ * stream may be joined, or resume after lost data, in the middle of a
+ * frame, so what looks like a header counts only if another follows where
+ * the frame should end. */
+static size_t next_stream_frame(Aac *a)
+{
+    size_t skipped = 0, size;
+
+    for (;;) {
+        if (!feed_to(a, ADTS_HEADER_SIZE))
+            return 0;
+        size = (size_t)(a->frame[3] & 3) << 11 | (size_t)a->frame[4] << 3 | a->frame[5] >> 5;
+        if (adts_sync(a->frame) && size >= ADTS_HEADER_SIZE) {
+            if (!feed_to(a, size))
+                return 0;
+            /* Without enough in hand to see the next header, trust this one. */
+            if (!feed_to(a, size + 2) || adts_sync(a->frame + size))
+                return size;
+        }
+        if (++skipped > MAX_RESYNC_BYTES)
+            return 0;
+        memmove(a->frame, a->frame + 1, --a->fed);
+    }
+}
+
+/* Drops the frame just decoded, keeping what was read beyond it. */
+static void stream_frame_done(Aac *a, size_t size)
+{
+    a->fed -= size;
+    memmove(a->frame, a->frame + size, a->fed);
+}
+
 /* Loads the next compressed frame into a->frame. Returns its size, 0 at the end. */
 static size_t next_frame(Aac *a)
 {
@@ -75,6 +128,8 @@ static size_t next_frame(Aac *a)
     unsigned bytes = 0, timestamp, duration;
     size_t size;
 
+    if (a->feed)
+        return next_stream_frame(a);
     if (a->is_mp4) {
         long offset;
 
@@ -108,6 +163,8 @@ static int decode_frame(Aac *a)
         if (!size)
             return 0;
         pcm = NeAACDecDecode(a->decoder, &info, a->frame, (unsigned long)size);
+        if (a->feed)
+            stream_frame_done(a, size);     /* the output is the decoder's own; the input is done with */
         if (info.error || !pcm || !info.samples || !info.channels) {
             if (info.error && ++bad > MAX_BAD_FRAMES)
                 return 0;
@@ -154,6 +211,8 @@ static int aac_seek(void *state, uint64_t frame)
     unsigned char header[ADTS_HEADER_SIZE];
     unsigned bytes, timestamp, duration;
 
+    if (a->feed)
+        return 0;       /* what has been played is gone */
     a->pcm_frames = a->pcm_pos = 0;
     if (a->is_mp4) {
         /* Binary search for the last sample starting at or before the target. */
@@ -258,10 +317,54 @@ static int open_adts(Aac *a, uint64_t *frame_count)
     return 1;
 }
 
+static void configure(Aac *a)
+{
+    NeAACDecConfigurationPtr config = NeAACDecGetCurrentConfiguration(a->decoder);
+
+    config->outputFormat = FAAD_FMT_16BIT;
+    config->downMatrix = 1;     /* fold 5.1 down to stereo */
+    NeAACDecSetConfiguration(a->decoder, config);
+}
+
+int codec_open_aac_stream(CodecFeed feed, void *user, Codec *codec)
+{
+    Aac *a = calloc(1, sizeof *a);
+    unsigned long rate;
+    unsigned char channels;
+    size_t size;
+
+    if (!a)
+        return 0;
+    a->feed = feed;
+    a->feed_user = user;
+    a->decoder = NeAACDecOpen();
+    /* Room for the largest frame and the start of the one after it. */
+    if (!a->decoder || !reserve_frame(a, ADTS_MAX_FRAME + ADTS_HEADER_SIZE)) {
+        aac_close(a);
+        return 0;
+    }
+    configure(a);
+    /* The first frame configures the decoder and stays in place to be
+     * decoded; that reveals the real output format (see codec_open_aac). */
+    size = next_stream_frame(a);
+    if (!size || NeAACDecInit(a->decoder, a->frame, (unsigned long)size, &rate, &channels) < 0 ||
+        !decode_frame(a) || a->channels > 2) {
+        aac_close(a);
+        return 0;
+    }
+    codec->state = a;
+    codec->channels = a->channels;
+    codec->rate = a->rate;
+    codec->length = 0;
+    codec->read = aac_read;
+    codec->seek = aac_seek;
+    codec->close = aac_close;
+    return 1;
+}
+
 int codec_open_aac(const char *path, Codec *codec)
 {
     Aac *a = calloc(1, sizeof *a);
-    NeAACDecConfigurationPtr config;
     unsigned char head[8];
     uint64_t length = 0;
     long file_size;
@@ -276,10 +379,7 @@ int codec_open_aac(const char *path, Codec *codec)
         aac_close(a);
         return 0;
     }
-    config = NeAACDecGetCurrentConfiguration(a->decoder);
-    config->outputFormat = FAAD_FMT_16BIT;
-    config->downMatrix = 1;     /* fold 5.1 down to stereo */
-    NeAACDecSetConfiguration(a->decoder, config);
+    configure(a);
 
     if (memcmp(head + 4, "ftyp", 4) == 0)
         ok = open_mp4(a, file_size, &length);

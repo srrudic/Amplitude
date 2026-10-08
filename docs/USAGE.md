@@ -82,6 +82,24 @@ The other buttons along the bottom each open a menu too:
 | MISC   | Sort by title, by file name, or by folder and file; Reverse list; Randomize list; Queue selected to play next; Clear queue |
 | LIST   | New list, Open list..., Save list... (as `.m3u`) |
 
+**Streams.** Internet radio stations and audio files on a web server play
+like any other entry. Give the address to "Open location..." (Ctrl+L, or in
+the menu; Ctrl+V pastes), to "Add location..." in the playlist's ADD menu,
+or on the command line; or open or drop the `.pls` or `.m3u` file a station
+offers. The playlist shows the station's name once it has connected, and
+the title display shows the song the station says it is playing. While a
+stream connects or refills its buffer the display says "Buffering...".
+A stream has no length and cannot be wound; pausing keeps a few seconds
+buffered, and Stop followed by Play connects afresh. Stations sending MP3,
+AAC (including AAC+), Ogg Vorbis or Opus work, as do HLS streams (addresses
+ending in `.m3u8`) and MP3, FLAC, WAV and Ogg files on a web server. Not
+supported: encrypted HLS streams, FLAC in Ogg, `.m4a` files on the web, and
+the long-abandoned Windows Media and RealAudio streams. Given the address
+of an HLS video, the player plays its sound. Secure
+(`https`) addresses use the system's own encryption: OpenSSL on Linux, and
+on Windows whatever that version of Windows provides, which on XP and
+older is too old for many of today's servers.
+
 **Play queue.** To hear something next without changing the list, queue
 it: select tracks in the playlist and press Q (or MISC, "Queue selected to
 play next"), or in jump to file use the ENQUEUE button, Ctrl+Q or Shift+Enter on a match. Queued tracks

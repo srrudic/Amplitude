@@ -42,4 +42,19 @@ static inline int path_has_extension(const char *path, const char *ext)
     return 1;
 }
 
+/* Is this a web address rather than a file on disk? */
+static inline int path_is_url(const char *path)
+{
+    static const char http[] = "http://", https[] = "https://";
+    size_t i;
+
+    for (i = 0; http[i] && (path[i] | 0x20) == http[i]; i++)
+        ;
+    if (!http[i])
+        return 1;
+    for (i = 0; https[i] && (path[i] | 0x20) == https[i]; i++)
+        ;
+    return !https[i];
+}
+
 #endif

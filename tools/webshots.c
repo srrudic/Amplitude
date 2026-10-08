@@ -201,7 +201,8 @@ static void shot_colors(int scale)
 static void shot_jump(int scale)
 {
     static const MenuItem items[] = {
-        { "Add files...", 1, 0, 0 }, { "Add folder...", 2, 0, 0 }, { "Jump to file... (Ctrl+J)", 12, 0, 0 },
+        { "Add files...", 1, 0, 0 }, { "Add folder...", 2, 0, 0 }, { "Open location... (Ctrl+L)", 13, 0, 0 },
+        { "Jump to file... (Ctrl+J)", 12, 0, 0 },
         { NULL, 0, 0, 0 },
         { "Equalizer", 3, 1, 0 }, { "Playlist", 4, 1, 0 }, { NULL, 0, 0, 0 },
         { "Shuffle", 5, 1, 0 }, { "Repeat", 6, 0, 0 }, { NULL, 0, 0, 0 },
@@ -231,7 +232,7 @@ static void shot_jump(int scale)
     free(px);
 
     px = malloc(sizeof(uint32_t) * mw * mh);
-    menu_draw(px, menu_w, menu_h, scale, items, count, 12);
+    menu_draw(px, menu_w, menu_h, scale, items, count, 13);
     image_paste(&img, px, mw, mh, jw + gap, 0);
     free(px);
     image_save(&img, "details");

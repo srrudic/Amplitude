@@ -27,6 +27,7 @@
 #define BALANCE_SNAP    0.15f   /* the balance slider sticks to the centre within this */
 #define JUMP_OFFSET     20      /* where the dialogs first open, from the main window's corner */
 #define ABOUT_OFFSET    12
+#define URL_OFFSET      16
 #define QUERY_MAX       128     /* characters compared when searching */
 #define TITLE_MAX       256
 #define DOUBLE_CLICK_MS 400
@@ -38,7 +39,7 @@
 #define PL_MAX_W        (PL_MIN_W + 40 * PL_STEP_W)
 #define PL_MAX_H        (PL_MIN_H + 30 * PL_STEP_H)
 
-enum { WIN_MAIN, WIN_EQ, WIN_PL, WIN_JUMP, WIN_ABOUT, WIN_COUNT };
+enum { WIN_MAIN, WIN_EQ, WIN_PL, WIN_JUMP, WIN_ABOUT, WIN_URL, WIN_COUNT };
 
 typedef struct {
     PlatWindow *plat;
@@ -58,6 +59,7 @@ static AppWindow wins[WIN_COUNT] = {
     [WIN_PL]   = { .w = PL_MIN_W, .h = PL_MIN_H },
     [WIN_JUMP] = { .w = JUMP_W, .h = JUMP_H },
     [WIN_ABOUT] = { .w = ABOUT_W, .h = ABOUT_H },
+    [WIN_URL] = { .w = URL_W, .h = URL_H },
 };
 static int scale = 100;         /* magnification in percent */
 static Skin skin;
@@ -101,6 +103,10 @@ static int *jump_matches;           /* playlist indices of the matching tracks *
 static int jump_count, jump_selected, jump_scroll;
 static int jump_skip_text;          /* the key that opened the window also types a letter */
 
+/* Open location */
+static char url_text[1024];         /* the address being typed */
+static char stream_song[256];       /* what the station says it is playing */
+
 /* Mouse interaction */
 static int pressed;                 /* UI_* element held down */
 static int pressed_slider;          /* for UI_EQ_SLIDER */
@@ -122,7 +128,7 @@ enum {
     CMD_SELECT_ALL, CMD_SELECT_NONE, CMD_SELECT_INVERT,
     CMD_SORT_TITLE, CMD_SORT_FILENAME, CMD_SORT_PATH, CMD_REVERSE, CMD_RANDOMIZE,
     CMD_LIST_NEW, CMD_LIST_OPEN, CMD_LIST_SAVE, CMD_ABOUT, CMD_SKIN_LOAD,
-    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR, CMD_JUMP,
+    CMD_QUEUE_SELECTED, CMD_QUEUE_CLEAR, CMD_JUMP, CMD_OPEN_URL,
     CMD_SIZE_FIRST = 1500,      /* + index into size_choices */
     CMD_PRESET_FIRST = 1600,    /* + index into presets */
     CMD_COLOR_FIRST = 1700,     /* + index into theme_presets */
@@ -146,6 +152,7 @@ static char *skin_paths[SKIN_MAX];
 static int skin_count, skin_page;
 
 static void add_path(const char *path, int depth);
+static void play_track(int index);
 static void keep_on_screen(int *x, int *y, int w, int h);
 static void apply_auto_preset(void);
 
@@ -472,8 +479,14 @@ static void show_title(void)
     const Track *track = playlist_get(track_index);
     int length = (int)audio_length();
 
-    if (track)
+    if (!track)
+        return;
+    if (audio_is_stream() && stream_song[0])        /* a station: the song, then the station */
+        snprintf(title, sizeof title, "%d. %s (%s)", track_index + 1, stream_song, track->title);
+    else if (length > 0)
         snprintf(title, sizeof title, "%d. %s (%d:%02d)", track_index + 1, track->title, length / 60, length % 60);
+    else
+        snprintf(title, sizeof title, "%d. %s", track_index + 1, track->title);
 }
 
 /* Updates what is shown about a track the audio engine has just started on. */
@@ -492,8 +505,10 @@ static void track_started(int index)
     track_index = index;
     track_loaded = 1;
     track_kbps = 0;
+    stream_song[0] = '\0';
     playlist_dequeue(index);        /* its turn has come */
-    playlist_set_length(index, (int)length);
+    if (length > 0)
+        playlist_set_length(index, (int)length);
     show_title();
     if (length > 0)
         track_kbps = (int)((double)file_size(track->path) * 8.0 / length / 1000.0 + 0.5);
@@ -644,8 +659,10 @@ static void remove_missing(void)
     int i;
 
     for (i = playlist_count() - 1; i >= 0; i--) {
-        FILE *f = plat_fopen(playlist_get(i)->path, "rb");
+        FILE *f = path_is_url(playlist_get(i)->path) ? NULL : plat_fopen(playlist_get(i)->path, "rb");
 
+        if (path_is_url(playlist_get(i)->path))
+            continue;       /* not a file; whether it answers is not checked here */
         if (f)
             fclose(f);
         else
@@ -823,8 +840,27 @@ static int is_audio_file(const char *path)
     return 0;
 }
 
-/* Adds whatever `path` is: a track, a playlist, a folder (recursively, in
- * name order, audio files only) or a skin, which is loaded instead. */
+/* A station's .pls file: "File1=address" lines, among others. */
+static void add_pls(const char *path, int depth)
+{
+    char line[2048];
+    FILE *f = plat_fopen(path, "r");
+
+    if (!f)
+        return;
+    while (depth < MAX_FOLDER_DEPTH && fgets(line, sizeof line, f)) {
+        char *value = strchr(line, '=');
+
+        line[strcspn(line, "\r\n")] = '\0';
+        if (value && (line[0] == 'F' || line[0] == 'f') && strncmp(line + 1, "ile", 3) == 0 && value[1])
+            add_path(value + 1, depth + 1);
+    }
+    fclose(f);
+}
+
+/* Adds whatever `path` is: a track, a web address, a playlist, a folder
+ * (recursively, in name order, audio files only) or a skin, which is loaded
+ * instead. */
 static void add_path(const char *path, int depth)
 {
     char full[2048];
@@ -833,6 +869,15 @@ static void add_path(const char *path, int depth)
 
     if (path_has_extension(path, ".wsz")) {
         set_skin(path);
+        return;
+    }
+    if (path_is_url(path)) {        /* a station or a file on the web: taken as it is */
+        playlist_add(path);
+        queue_dirty = 1;
+        return;
+    }
+    if (path_has_extension(path, ".pls")) {
+        add_pls(path, depth);
         return;
     }
     /* Absolute paths keep the saved playlist valid from any directory. */
@@ -964,7 +1009,7 @@ static int apply_scale(void)
 static int create_windows(void)
 {
     static const char *const titles[WIN_COUNT] = {
-        "Amplitude", "Amplitude Equalizer", "Amplitude Playlist", "Jump to file", "About Amplitude" };
+        "Amplitude", "Amplitude Equalizer", "Amplitude Playlist", "Jump to file", "About Amplitude", "Open location" };
     int i;
 
     for (i = 0; i < WIN_COUNT; i++) {
@@ -1220,6 +1265,78 @@ static void jump_enqueue_selected(void)
     }
 }
 
+/* --- Open location ------------------------------------------------------------ */
+
+static void open_url_window(void)
+{
+    url_text[0] = '\0';
+    open_dialog(WIN_URL, URL_OFFSET);
+}
+
+/* Adds the typed address and plays it. */
+static void url_accept(void)
+{
+    char *start = url_text, *end = url_text + strlen(url_text);
+    int before = playlist_count();
+
+    while (*start == ' ')
+        start++;
+    while (end > start && end[-1] == ' ')
+        *--end = '\0';
+    set_window_visible(WIN_URL, 0);
+    if (!*start)
+        return;
+    if (!path_is_url(start) && !strstr(start, "://")) {     /* "radio.example/live" */
+        char full[sizeof url_text + 8];
+
+        snprintf(full, sizeof full, "http://%s", start);
+        add_path(full, 0);
+    } else {
+        add_path(start, 0);
+    }
+    if (playlist_count() > before)
+        play_track(before);
+}
+
+/* Keyboard input while the Open location window is open. */
+static void url_input(const PlatEvent *ev)
+{
+    size_t len = strlen(url_text);
+
+    if (ev->type == PEV_TEXT) {
+        if (len + strlen(ev->text) < sizeof url_text)
+            strcat(url_text, ev->text);
+        return;
+    }
+    switch (ev->key) {
+    case PK_ESCAPE:
+        set_window_visible(WIN_URL, 0);
+        break;
+    case PK_ENTER:
+        url_accept();
+        break;
+    case PK_BACKSPACE:
+        while (len && ((unsigned char)url_text[len - 1] & 0xC0) == 0x80)
+            len--;
+        if (len)
+            url_text[len - 1] = '\0';
+        break;
+    case 'V':
+        if (ev->mods & PMOD_CTRL) {     /* paste, keeping only what can be an address */
+            char pasted[sizeof url_text];
+            size_t i;
+
+            if (!plat_clipboard_text(pasted, sizeof pasted))
+                break;
+            for (i = 0; pasted[i] && len + 1 < sizeof url_text; i++)
+                if ((unsigned char)pasted[i] > ' ')
+                    url_text[len++] = pasted[i];
+            url_text[len] = '\0';
+        }
+        break;
+    }
+}
+
 /* Keyboard input while the jump window is open. */
 static void jump_input(const PlatEvent *ev)
 {
@@ -1316,6 +1433,7 @@ static void open_menu(int which)
     } else if (which == MENU_ADD) {
         menu_add("Add files...", CMD_ADD_FILES, 0);
         menu_add("Add folder...", CMD_ADD_FOLDER, 0);
+        menu_add("Add location...", CMD_OPEN_URL, 0);
     } else if (which == MENU_REMOVE) {
         menu_add("Remove selected", CMD_REMOVE_SELECTED, 0);
         menu_add("Crop to selected", CMD_CROP, 0);
@@ -1356,6 +1474,7 @@ static void open_menu(int which)
     } else if (which == MENU_MAIN) {
         menu_add("Add files...", CMD_ADD_FILES, 0);
         menu_add("Add folder...", CMD_ADD_FOLDER, 0);
+        menu_add("Open location... (Ctrl+L)", CMD_OPEN_URL, 0);
         menu_add("Jump to file... (Ctrl+J)", CMD_JUMP, 0);
         menu_add(NULL, 0, 0);
         menu_add("Equalizer", CMD_EQ, wins[WIN_EQ].visible);
@@ -1453,8 +1572,8 @@ static void do_action(int element)
     case UI_PLAY:
         if (audio_state() == AUDIO_PAUSED)
             audio_pause();
-        else if (track_loaded)
-            audio_play();
+        else if (track_loaded && !audio_is_stream())
+            audio_play();       /* a stopped station is connected afresh, below */
         else
             play_track(track_index);
         break;
@@ -1563,6 +1682,16 @@ static void do_action(int element)
         break;
     case UI_JUMP_PLAY:
         jump_play_selected();
+        break;
+    case CMD_OPEN_URL:
+        open_url_window();
+        break;
+    case UI_URL_OPEN:
+        url_accept();
+        break;
+    case UI_URL_CLOSE:
+    case UI_URL_CANCEL:
+        set_window_visible(WIN_URL, 0);
         break;
     case UI_JUMP_ENQUEUE:
         jump_enqueue_selected();
@@ -1724,7 +1853,7 @@ static void handle_key(int win, int key, int mods)
     case 'C': do_action(UI_PAUSE); break;
     case 'V': do_action(UI_STOP); break;
     case 'B': do_action(UI_NEXT); break;
-    case 'L': do_action(UI_OPEN); break;
+    case 'L': do_action(mods & PMOD_CTRL ? CMD_OPEN_URL : UI_OPEN); break;
     case 'S': do_action(UI_SHUFFLE); break;
     case 'R': do_action(UI_REPEAT); break;
     case 'G': do_action(UI_EQ_TOGGLE); break;
@@ -1747,6 +1876,7 @@ static int hit_test(int win, int x, int y, int *slider)
     case WIN_PL: return pl_hit(&skin, x, y);
     case WIN_JUMP: return jump_hit(x, y);
     case WIN_ABOUT: return about_hit(x, y);
+    case WIN_URL: return url_hit(x, y);
     default:     return ui_hit(&skin, x, y);
     }
 }
@@ -1766,6 +1896,7 @@ static void track_mouse(const PlatEvent *ev)
     case UI_PL_TITLEBAR:
     case UI_JUMP_TITLEBAR:
     case UI_ABOUT_TITLEBAR:
+    case UI_URL_TITLEBAR:
         update_drag(ev);
         break;
     case UI_VOLUME:
@@ -1855,6 +1986,10 @@ static void handle_event(const PlatEvent *ev)
     }
     /* While the jump window is open it gets everything typed, whichever of
      * our windows has the keyboard. */
+    if (wins[WIN_URL].visible && (ev->type == PEV_KEY_DOWN || ev->type == PEV_TEXT)) {
+        url_input(ev);
+        return;
+    }
     if (wins[WIN_JUMP].visible && (ev->type == PEV_KEY_DOWN || ev->type == PEV_TEXT)) {
         jump_input(ev);
         return;
@@ -1930,7 +2065,7 @@ static void handle_event(const PlatEvent *ev)
             }
         }
         if (pressed == UI_TITLEBAR || pressed == UI_EQ_TITLEBAR || pressed == UI_PL_TITLEBAR ||
-            pressed == UI_JUMP_TITLEBAR || pressed == UI_ABOUT_TITLEBAR) {
+            pressed == UI_JUMP_TITLEBAR || pressed == UI_ABOUT_TITLEBAR || pressed == UI_URL_TITLEBAR) {
             begin_drag(win, ev);
         } else if (pressed == UI_PL_LIST) {
             click_playlist_row(pl_scroll + pl_row_at(ev->y), ev->mods);
@@ -2021,7 +2156,7 @@ static void render(void)
     memset(&model, 0, sizeof model);
     model.title = slider_readout();
     if (!model.title)
-        model.title = title;
+        model.title = audio_buffering() ? "Buffering..." : title;
     model.state = audio_state();
     model.length = audio_length();
     model.position = model.state == AUDIO_STOPPED ? 0 : audio_position();
@@ -2099,6 +2234,10 @@ static void render(void)
         jump_draw(wins[WIN_JUMP].fb, scale, &jump_model);
         plat_window_present(wins[WIN_JUMP].plat, wins[WIN_JUMP].fb);
     }
+    if (wins[WIN_URL].visible) {
+        url_draw(wins[WIN_URL].fb, scale, url_text, pressed, plat_ticks_ms());
+        plat_window_present(wins[WIN_URL].plat, wins[WIN_URL].fb);
+    }
     if (wins[WIN_ABOUT].visible) {
         about_draw(wins[WIN_ABOUT].fb, scale, pressed);
         plat_window_present(wins[WIN_ABOUT].plat, wins[WIN_ABOUT].fb);
@@ -2167,6 +2306,32 @@ static int all_exposed(void)
         if (wins[i].visible && !wins[i].exposed)
             return 0;
     return 1;
+}
+
+/* What a stream has to report since the last frame: that it could not be
+ * opened after all, the station's name and bitrate, the song it plays. */
+static void stream_news(void)
+{
+    const Track *track = playlist_get(track_index);
+    const char *name;
+
+    audio_update();
+    if (audio_take_failed() && track) {
+        track_loaded = 0;
+        snprintf(title, sizeof title, "CANNOT PLAY: %s", track->title);
+        return;
+    }
+    if (!track_loaded || !audio_is_stream() || audio_buffering())
+        return;
+    name = audio_stream_name();
+    if (name[0] && track && strcmp(track->title, name) != 0) {
+        playlist_set_title(track_index, name);      /* in place of the bare address */
+        show_title();
+    }
+    if (audio_stream_bitrate())
+        track_kbps = audio_stream_bitrate();
+    if (audio_stream_title(stream_song, sizeof stream_song))
+        show_title();
 }
 
 /* Paints the windows as soon as they exist and waits, briefly, until the
@@ -2316,6 +2481,7 @@ int main(int argc, char **argv)
             track_started(queued_index);
         if (audio_take_finished() && !play_next())
             audio_stop();
+        stream_news();
         if (queue_dirty)
             update_queue();
 

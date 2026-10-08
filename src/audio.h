@@ -2,6 +2,8 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#include <stddef.h>
+
 enum { AUDIO_STOPPED, AUDIO_PLAYING, AUDIO_PAUSED };
 
 #define AUDIO_VIS_SAMPLES 512
@@ -19,6 +21,20 @@ void   audio_stop(void);
 int    audio_state(void);
 /* Returns 1 once after the current track has played to its end. */
 int    audio_take_finished(void);
+
+/* Web addresses (http and https) open like files, but connecting and
+ * buffering happen in the background: audio_open() succeeds at once and
+ * audio_update(), called every frame, completes the job when enough has
+ * arrived. If that fails, audio_take_failed() returns 1 once. Streams have
+ * no length and cannot be wound or queued for a gapless change. */
+void   audio_update(void);
+int    audio_take_failed(void);
+int    audio_is_stream(void);
+int    audio_buffering(void);       /* connecting, or run dry and refilling */
+/* What a station says it is playing, when that has changed (UTF-8). */
+int    audio_stream_title(char *out, size_t size);
+const char *audio_stream_name(void);    /* the station's name, or "" */
+int    audio_stream_bitrate(void);      /* kbit/s as stated by the station, or 0 */
 
 /* Gapless playback: prepares `path` to start the instant the current track
  * ends (NULL cancels). Returns 1 if it was queued, 0 if not, and -1 if the

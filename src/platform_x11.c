@@ -926,6 +926,40 @@ int plat_open_folder_dialog(char *out, size_t out_size)
     return run_dialog(commands, 2, copy_path, &buffer) > 0;
 }
 
+int plat_clipboard_text(char *out, size_t out_size)
+{
+    Atom clipboard = XInternAtom(dpy, "CLIPBOARD", False), utf8 = XInternAtom(dpy, "UTF8_STRING", False);
+    Atom property = XInternAtom(dpy, "_AMPLITUDE_PASTE", False), type;
+    unsigned long count = 0;
+    unsigned char *data;
+    XEvent xev;
+    int format, waited, answered = 0;
+
+    /* The clipboard's owner is asked to put its text on one of our windows,
+     * and says so when it has. Half a second is plenty for a program that
+     * is alive. */
+    if (!main_window || out_size < 2)
+        return 0;
+    XConvertSelection(dpy, clipboard, utf8, property, main_window->xwin, CurrentTime);
+    XFlush(dpy);
+    for (waited = 0; waited < 500 && !answered; waited += 10) {
+        answered = XCheckTypedWindowEvent(dpy, main_window->xwin, SelectionNotify, &xev);
+        if (!answered)
+            plat_sleep_ms(10);
+    }
+    if (!answered || xev.xselection.property == None)
+        return 0;
+    data = read_property(main_window->xwin, property, True, &count, &type, &format);
+    if (!data)
+        return 0;
+    if (count >= out_size)
+        count = out_size - 1;
+    memcpy(out, data, count);
+    out[count] = '\0';
+    XFree(data);
+    return count > 0;
+}
+
 void plat_open_url(const char *url)
 {
     pid_t child = fork();

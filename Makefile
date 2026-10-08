@@ -25,11 +25,11 @@
 # Generated files (src/font_data.c, src/icon_data.c, the icons) are kept in
 # the tree; tools/genfont.py and tools/genlogo.py recreate them.
 
-VERSION        := 0.1.1
+VERSION        := 0.2.0
 RELEASE_DATE   := 2026-10-04
 DEB_MAINTAINER ?= Srđan Rudić <blaster7th@gmail.com>
 
-COMMON_SRC := main.c config.c tags.c presets.c theme.c playlist.c ui.c ui_eq.c ui_playlist.c ui_jump.c ui_about.c ui_dialog.c ui_menu.c gfx.c font_data.c audio.c \
+COMMON_SRC := main.c config.c tags.c presets.c theme.c playlist.c ui.c ui_eq.c ui_playlist.c ui_jump.c ui_about.c ui_url.c ui_dialog.c ui_menu.c gfx.c font_data.c audio.c stream.c \
               skin.c skin_default.c zip.c \
               codec.c codec_vorbis.c codec_opus.c codec_aac.c codec_mod.c
 HEADERS    := $(wildcard src/*.h)
@@ -60,7 +60,8 @@ XMP_FLAGS      := -DLIBXMP_CORE_PLAYER -DLIBXMP_STATIC -I$(TP)/libxmp-lite/inclu
                   -I$(TP)/libxmp-lite/src
 FAAD_FLAGS     := -DPACKAGE_VERSION='"2.11.1"' -DHAVE_STDINT_H -DHAVE_STRING_H -DHAVE_MEMCPY -DHAVE_LRINTF \
                   -DSTDC_HEADERS -I$(TP)/faad2/include -I$(TP)/faad2/libfaad
-STB_FLAGS      := -DSTB_VORBIS_NO_PUSHDATA_API
+# (stb_vorbis is built whole: files use its "pull" interface, streams its "push" one.)
+STB_FLAGS      :=
 
 # What our own sources need to find the decoder headers.
 CODEC_INCLUDES := $(OPUSFILE_FLAGS) -DLIBXMP_STATIC -I$(TP)/libxmp-lite/include/libxmp-lite -I$(TP)/faad2/include
@@ -101,7 +102,7 @@ objects = $(patsubst %.c,$(1)/%.o,$(COMMON_SRC) $(2)) $(patsubst %.c,$(1)/tp/%.o
 
 # --- Linux ------------------------------------------------------------------
 LINUX_DIR  := build/linux
-LINUX_OBJ  := $(call objects,$(LINUX_DIR),platform_x11.c mpris.c icon_data.c)
+LINUX_OBJ  := $(call objects,$(LINUX_DIR),platform_x11.c mpris.c net_posix.c icon_data.c)
 # X11 headers are bundled and the program links against the runtime library
 # that every desktop has, so no development package is needed. With
 # libx11-dev installed, "make X11_CFLAGS= X11_LIBS=-lX11" uses the system's.
@@ -134,14 +135,17 @@ export PATH := $(LOCAL_MINGW):$(PATH)
 endif
 WIN_DIR   := build/win32
 WIN64_DIR := build/win64
-WIN_OBJ   := $(call objects,$(WIN_DIR),platform_win32.c) $(WIN_DIR)/resources.o
-WIN64_OBJ := $(call objects,$(WIN64_DIR),platform_win32.c) $(WIN64_DIR)/resources.o
+WIN_OBJ   := $(call objects,$(WIN_DIR),platform_win32.c net_win32.c) $(WIN_DIR)/resources.o
+WIN64_OBJ := $(call objects,$(WIN64_DIR),platform_win32.c net_win32.c) $(WIN64_DIR)/resources.o
 WIN_LIBS := -lgdi32 -lcomdlg32 -lshell32
 WIN_LDFLAGS := -mwindows -static-libgcc
 # No -fdata-sections here: on PE targets it moves zero-initialised data out
 # of .bss and into the file, which bloats the executable.
 $(eval $(call PLATFORM_RULES,$(WIN_DIR),$(WIN_CC),))
 $(eval $(call PLATFORM_RULES,$(WIN64_DIR),$(WIN64_CC),))
+
+# The version number is compiled into these, so they follow the Makefile.
+$(foreach dir,$(LINUX_DIR) $(WIN_DIR) $(WIN64_DIR),$(dir)/ui_about.o $(dir)/stream.o): Makefile
 
 # Plain "make" builds for the machine it runs on; "make all" builds every
 # release file.
@@ -244,8 +248,8 @@ deb: linux
 # undefined-behaviour sanitizers, against the normal third-party objects.
 TEST_DIR    := build/test
 TEST_CFLAGS := -g -O1 -std=gnu99 -Wall -Wextra -fsanitize=address,undefined -Isrc -Itests
-TEST_NAMES  := test_gfx test_data test_tags test_skin test_render test_codecs test_audio
-TEST_CORE   := $(patsubst %.c,$(TEST_DIR)/core/%.o,$(filter-out main.c,$(COMMON_SRC))) $(TEST_DIR)/core/stubs.o
+TEST_NAMES  := test_gfx test_data test_tags test_skin test_render test_codecs test_audio test_stream
+TEST_CORE   := $(patsubst %.c,$(TEST_DIR)/core/%.o,$(filter-out main.c,$(COMMON_SRC))) $(TEST_DIR)/core/stubs.o $(TEST_DIR)/core/net_posix.o
 TEST_TP     := $(patsubst %.c,$(LINUX_DIR)/tp/%.o,$(TP_SRC))
 
 $(TEST_DIR)/core/%.o: src/%.c $(HEADERS)
@@ -270,7 +274,7 @@ AUDIO_TEST_ENV ?=
 
 test: $(TEST_NAMES:%=$(TEST_DIR)/%)
 	@for t in $(TEST_NAMES); do echo "$$t"; \
-	    if [ $$t = test_audio ]; then env $(AUDIO_TEST_ENV) $(TEST_DIR)/$$t tests/media || exit 1; \
+	    if [ $$t = test_audio ] || [ $$t = test_stream ]; then env $(AUDIO_TEST_ENV) $(TEST_DIR)/$$t tests/media || exit 1; \
 	    else $(TEST_DIR)/$$t tests/media || exit 1; fi; \
 	done; echo "all tests passed"
 

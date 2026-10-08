@@ -55,7 +55,14 @@ int playlist_add(const char *path)
         capacity = grown_capacity;
     }
 
-    if (tags_read(path, artist, sizeof artist, title, sizeof title)) {
+    if (path_is_url(path)) {
+        /* A web address: nothing to read tags from. It is shown without its
+         * "http://" until the station gives its name. */
+        const char *shown = strstr(path, "://");
+
+        text_to_utf8(text, sizeof text, (const unsigned char *)(shown ? shown + 3 : path),
+                     strlen(shown ? shown + 3 : path), TEXT_UTF8);
+    } else if (tags_read(path, artist, sizeof artist, title, sizeof title)) {
         if (artist[0])
             snprintf(text, sizeof text, "%s - %s", artist, title);
         else
@@ -99,6 +106,20 @@ void playlist_set_length(int index, int seconds)
         tracks[index].length = seconds;
         revision++;
     }
+}
+
+void playlist_set_title(int index, const char *title)
+{
+    char *copy;
+
+    if (index < 0 || index >= count || strcmp(tracks[index].title, title) == 0)
+        return;
+    copy = dup_range(title, strlen(title));
+    if (!copy)
+        return;
+    free(tracks[index].title);
+    tracks[index].title = copy;
+    revision++;
 }
 
 void playlist_select(int index, int selected)
@@ -298,7 +319,7 @@ void playlist_free(void)
 
 static int is_absolute(const char *path)
 {
-    return path[0] == '/' || path[0] == '\\' || (path[0] && path[1] == ':');
+    return path[0] == '/' || path[0] == '\\' || (path[0] && path[1] == ':') || path_is_url(path);
 }
 
 #define BREATHE_EVERY 16    /* tracks */

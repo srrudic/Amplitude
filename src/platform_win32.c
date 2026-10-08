@@ -727,6 +727,36 @@ int plat_open_files_dialog(PlatPathFn fn, void *user)
     return count;
 }
 
+int plat_clipboard_text(char *out, size_t out_size)
+{
+    int unicode = unicode_os(), ok = 0;
+    HANDLE handle;
+
+    out[0] = '\0';
+    if (!OpenClipboard(NULL))
+        return 0;
+    handle = GetClipboardData(unicode ? CF_UNICODETEXT : CF_TEXT);
+    if (handle) {
+        const void *text = GlobalLock(handle);
+
+        if (text) {
+            if (unicode) {
+                wide_to_utf8(text, out, out_size);
+            } else {
+                /* ansi_to_utf8() works on a path-sized buffer; an address fits. */
+                char ansi[PATH_CHARS];
+
+                lstrcpynA(ansi, text, sizeof ansi);
+                ansi_to_utf8(ansi, out, out_size);
+            }
+            ok = out[0] != '\0';
+            GlobalUnlock(handle);
+        }
+    }
+    CloseClipboard();
+    return ok;
+}
+
 void plat_open_url(const char *url)
 {
     ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);

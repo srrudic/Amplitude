@@ -129,13 +129,13 @@ ok "playlist kept across the restart" tracks 6
 
 echo "--- colour change from the menu"
 start
-drive rclick 0 50 50 500 300  menu 30 140  popup yes  menu 30 52  popup no     # Color... > Amber
+drive rclick 0 50 50 500 300  menu 30 153  popup yes  menu 30 52  popup no     # Color... > Amber
 quit
 ok "colour saved" setting "color=#FFB347"
 
 echo "--- size change while running"
 start
-drive rclick 0 50 50 500 300  menu 30 126  popup yes  menu 30 91  wait 500     # Size... > 200%
+drive rclick 0 50 50 500 300  menu 30 139  popup yes  menu 30 91  wait 500     # Size... > 200%
 drive size 0 550 232  size 1 550 232  below 0 1
 "$DRIVE" click 0 536 14 0 >/dev/null; wait "$DRIVE_PID" 2>/dev/null; DRIVE_PID=
 ok "size saved" setting "scale_percent=200"
@@ -209,6 +209,27 @@ drive click 2 264 210 0  size 3 275 232  key 3 Down 0  key 3 Down 0  click 3 70 
 drive click 3 250 215 0  hidden 3  wait 4000                      # the CLOSE button
 quit
 ok "the track queued from the jump window played next" setting "track=2"
+
+echo "--- streams: a station file given at start, and the Open location window"
+# The address in the .pls is added as it is and played from a local test
+# station (see tests/stream_server.py); Ctrl+L opens the window for typing one.
+export XDG_CONFIG_HOME="$WORK/config-stream"
+INI="$XDG_CONFIG_HOME/amplitude/amplitude.ini"
+M3U="$XDG_CONFIG_HOME/amplitude/amplitude.m3u"
+mkdir -p "$XDG_CONFIG_HOME/amplitude"
+printf 'volume=0\n' > "$INI"      # the station plays a real sound, unlike the silent files above
+STREAM_PORT=$((21000 + $$ % 10000))
+python3 tests/stream_server.py "$STREAM_PORT" tests/media/sfx.mp3 >/dev/null 2>&1 &
+SERVER_PID=$!
+sleep 0.5
+printf '[playlist]\nNumberOfEntries=1\nFile1=http://127.0.0.1:%d/radio\nTitle1=Test\n' "$STREAM_PORT" > "$WORK/station.pls"
+start --scale 1 "$WORK/station.pls"
+sleep 1.5
+drive hidden 5  key 0 l 4  size 5 275 76  key 5 Escape 0  hidden 5
+quit
+kill "$SERVER_PID" 2>/dev/null
+ok "the station's address is in the playlist" grep -qx "http://127.0.0.1:$STREAM_PORT/radio" "$M3U"
+ok "the player reported no errors" sh -c "! grep -q '^amplitude:' '$WORK/stderr'"
 
 if [ $failed -eq 0 ]; then echo "gui test passed"; else echo "gui test FAILED"; fi
 exit $failed

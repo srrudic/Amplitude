@@ -166,8 +166,9 @@ H-22; SEL 82, H-22; MISC 111, H-22; LIST W-36, H-22; first row 100, 27, then
 previous W-143, play W-134, pause W-125, stop W-116, next W-107, open W-98.
 
 Main menu at 100% (popup window, empty title; rows are 13 high, separators
-5): Add files 8, Add folder 21, Jump to file 34, Equalizer 52, Playlist 65,
-Shuffle 83, Repeat 96, Skins 114, Size 127, Color 140, About 158, Exit 171 (all at
+5): Add files 8, Add folder 21, Open location 34, Jump to file 47, Equalizer 65,
+Playlist 78, Shuffle 96, Repeat 109, Skins 127, Size 140, Color 153, About 171,
+Exit 184 (all at
 x = 30). Submenus start with "< Back" at y 8, a separator, then entries from
 y 26 in steps of 13.
 
@@ -440,6 +441,49 @@ system-wide hot keys, and also answers `WM_APPCOMMAND`.
 - **H4** *(needs the user)* The buttons of a Bluetooth headset do the same.
 - **H5** With another player running that also wants the keys, note which
   one gets them; Amplitude must start and run normally either way.
+
+### 4.14 Streams *(added later; not yet run on Windows)*
+
+`src/net_win32.c` is new and has only been compiled: Winsock for plain
+addresses, WinINet for secure ones, both loaded when the first stream opens.
+
+- **T1** S5 again: the executables still import only the six system DLLs.
+- **T2** Open location (Ctrl+L): the window opens, typing and Backspace
+  work, Ctrl+V pastes an address from the clipboard, Escape closes it.
+- **T3** A plain station, `http://ice1.somafm.com/groovesalad-128-mp3`:
+  "Buffering..." and then sound within a few seconds; the playlist entry
+  becomes the station's name; the title display shows the current song;
+  the bitrate reads 128; the seek bar has no knob.
+- **T4** The same station at `https://`: this is the WinINet path. Also
+  `https://somafm.com/groovesalad.pls`, which is a station file on a
+  secure site.
+- **T5** Pause for ten seconds and resume; Stop and Play (connects again);
+  Next to a file and back; close the player while it is still connecting.
+  None of these may hang or crash, and the process must exit promptly.
+- **T6** An address that does not exist and one with a certificate error
+  (`https://expired.badssl.com/`): each ends in "CANNOT PLAY" within some
+  seconds, with the player still usable.
+- **T6a** AAC stations: `http://ice1.somafm.com/groovesalad-128-aac` and
+  the AAC+ one, `http://ice1.somafm.com/groovesalad-64-aac`. Both play
+  like T3, with clean sound and the song title shown.
+- **T6b** Ogg stations: `https://radio.plaza.one/ogg` (Vorbis) and
+  `https://radio.plaza.one/opus`, or `http://icecast.err.ee/vikerraadio.opus`.
+  Listen across a change of song: the sound must carry on cleanly and the
+  title change.
+- **T6c** HLS: `https://stream.radiofrance.fr/fip/fip.m3u8` and
+  `https://stream.revma.ihrhls.com/zc185/hls.m3u8`. Each fetches many
+  small files in a row, over WinINet when the address is secure; let one
+  play for ten minutes. The BBC World Service
+  (`http://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_world_service.m3u8`)
+  uses transport stream segments, and
+  `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-fmp4.ism/.m3u8`
+  MP4 fragments (a film; its sound plays, and ends after twelve minutes).
+- **T7** Unplug the network (or disable the adapter) while a station
+  plays: it runs out, and the player moves on or stops without hanging.
+- **T8** Leave a station playing for an hour; memory and handle counts as
+  in R5.
+- **T9** *(XP, by hand)* T3 should work there too; T4 probably will not,
+  because XP's encryption is too old for most servers. Note what is shown.
 
 ## 5. What only the user can check
 

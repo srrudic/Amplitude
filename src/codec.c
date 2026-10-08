@@ -34,3 +34,11 @@ int codec_open(const char *path, Codec *codec)
         return codec_open_module(path, codec);
     return 0;
 }
+
+void codec_format_title(char *out, size_t size, const char *artist, const char *title)
+{
+    if (artist && *artist && title && *title)
+        snprintf(out, size, "%s - %s", artist, title);
+    else
+        snprintf(out, size, "%s", title && *title ? title : artist ? artist : "");
+}

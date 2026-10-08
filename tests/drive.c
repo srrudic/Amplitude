@@ -42,7 +42,7 @@ static long player_pid;
 static int failures;
 
 static const char *const titles[] = { "Amplitude", "Amplitude Equalizer", "Amplitude Playlist", "Jump to file",
-                                      "About Amplitude" };
+                                      "About Amplitude", "Open location" };
 
 static long window_pid(Window w)
 {
@@ -88,7 +88,7 @@ static Window find_titled(Window w, const char *title)
  * size setting changes. */
 static Window window(int index)
 {
-    Window w = index >= 0 && index < 5 ? find_titled(DefaultRootWindow(dpy), titles[index]) : 0;
+    Window w = index >= 0 && index < 6 ? find_titled(DefaultRootWindow(dpy), titles[index]) : 0;
 
     if (!w) {
         printf("FAIL  window %d not found\n", index);
