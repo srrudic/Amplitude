@@ -159,7 +159,9 @@ the playlist are saved on exit and restored on the next start:
   without that folder (Windows 9x).
 
 For a portable install, on either system, create an empty `amplitude.ini`
-next to the program and everything stays in that folder. A portable copy
+next to the program and everything stays in that folder. The portable
+downloads come with that file already in place. Where the folder cannot
+be written to, the player falls back to the usual place. A portable copy
 is a player of its own: it runs beside an installed one without the two
 handing files to each other.
 

@@ -1090,7 +1090,8 @@ int plat_config_dir(char *out, size_t out_size)
         if (slash) {
             slash[1] = '\0';
             snprintf(probe, sizeof probe, "%samplitude.ini", program);
-            if (access(probe, F_OK) == 0 && strlen(program) < out_size) {
+            /* (Not if it cannot be written there: settings would be lost.) */
+            if (access(probe, W_OK) == 0 && strlen(program) < out_size) {
                 strcpy(out, program);
                 return 1;
             }

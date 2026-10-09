@@ -968,6 +968,7 @@ int plat_absolute_path(const char *path, char *out, size_t out_size)
 int plat_config_dir(char *out, size_t out_size)
 {
     char exe_dir[PATH_CHARS * 3] = "", appdata[PATH_CHARS * 3] = "", probe[PATH_CHARS * 3 + 16];
+    FILE *portable;
     char *slash;
 
     if (unicode_os()) {
@@ -991,8 +992,13 @@ int plat_config_dir(char *out, size_t out_size)
     slash[1] = '\0';
     snprintf(probe, sizeof probe, "%samplitude.ini", exe_dir);
 
-    if (attributes(probe) == INVALID_FILE_ATTRIBUTES && appdata[0] &&
-        strlen(appdata) + sizeof "\\Amplitude\\" <= out_size) {
+    /* An amplitude.ini beside the program makes it "portable": everything
+     * stays in that folder. Unless it cannot be written there (a zip
+     * unpacked into Program Files, a CD), where settings would be lost. */
+    portable = plat_fopen(probe, "r+b");
+    if (portable)
+        fclose(portable);
+    if (!portable && appdata[0] && strlen(appdata) + sizeof "\\Amplitude\\" <= out_size) {
         snprintf(out, out_size, "%s\\Amplitude", appdata);
         if (unicode_os()) {
             WCHAR wide[PATH_CHARS];

@@ -344,11 +344,13 @@ rpm: linux | $(RPM_TOOLCHAIN)
 # --- Release files ---------------------------------------------------------------
 # Everything that goes on the download page, and nothing else, in build/dist:
 #   amplitude-<ver>-win32-setup.exe, -win64-setup.exe    the Windows installers
-#   amplitude-<ver>-win32.zip    portable: just amplitude.exe and the licence
+#   amplitude-<ver>-win32.zip    portable: amplitude.exe, the licence, a README, and an empty
+#                                amplitude.ini, which keeps the settings in that folder
 #   amplitude-<ver>-win64.zip
 #   amplitude_<ver>_<arch>.deb
 #   amplitude-<ver>-1.<arch>.rpm
-#   amplitude-<ver>-linux-<arch>.tar.gz   portable: the program, its icon and menu entry, a README
+#   amplitude-<ver>-linux-<arch>.tar.gz   portable: the program, its icon and menu entry, a README,
+#                                and an empty amplitude.ini, which keeps the settings in that folder
 #   amplitude-<ver>.tar.gz       the source, as last committed to git
 DIST := build/dist
 LINUX_PORTABLE := amplitude-$(VERSION)-linux-$(RPM_ARCH)
@@ -361,6 +363,9 @@ dist: all
 	    mkdir -p $(DIST)/amplitude-$(VERSION)-win$$bits && \
 	    cp build/win$$bits/amplitude.exe $(DIST)/amplitude-$(VERSION)-win$$bits/ && \
 	    cp LICENSE $(DIST)/amplitude-$(VERSION)-win$$bits/LICENSE.txt && \
+	    sed -e 's/@VERSION@/$(VERSION)/' -e "s/@BITS@/$$bits/" -e 's/$$/\r/' packaging/README-windows.txt \
+	        > $(DIST)/amplitude-$(VERSION)-win$$bits/README.txt && \
+	    : > $(DIST)/amplitude-$(VERSION)-win$$bits/amplitude.ini && \
 	    (cd $(DIST) && zip -q -r -9 amplitude-$(VERSION)-win$$bits.zip amplitude-$(VERSION)-win$$bits) && \
 	    rm -r $(DIST)/amplitude-$(VERSION)-win$$bits || exit 1; \
 	done
@@ -369,6 +374,7 @@ dist: all
 	install -m644 LICENSE packaging/amplitude.desktop $(DIST)/$(LINUX_PORTABLE)/
 	install -m644 assets/icons/amplitude-128.png $(DIST)/$(LINUX_PORTABLE)/amplitude.png
 	sed -e 's/@VERSION@/$(VERSION)/' -e 's/@ARCH@/$(RPM_ARCH)/' packaging/README-linux.txt > $(DIST)/$(LINUX_PORTABLE)/README.txt
+	: > $(DIST)/$(LINUX_PORTABLE)/amplitude.ini
 	tar -C $(DIST) --owner=0 --group=0 --numeric-owner -czf $(DIST)/$(LINUX_PORTABLE).tar.gz $(LINUX_PORTABLE)
 	rm -r $(DIST)/$(LINUX_PORTABLE)
 	git archive --format=tar.gz --prefix=amplitude-$(VERSION)/ -o $(DIST)/amplitude-$(VERSION).tar.gz HEAD .
