@@ -156,8 +156,12 @@ the playlist are saved on exit and restored on the next start:
 
 - Linux: `$XDG_CONFIG_HOME/amplitude/` (normally `~/.config/amplitude/`)
 - Windows: `%APPDATA%\Amplitude\`, or next to `amplitude.exe` on systems
-  without that folder (Windows 9x). For a portable install, create an empty
-  `amplitude.ini` next to the executable and everything stays there.
+  without that folder (Windows 9x).
+
+For a portable install, on either system, create an empty `amplitude.ini`
+next to the program and everything stays in that folder. A portable copy
+is a player of its own: it runs beside an installed one without the two
+handing files to each other.
 
 `--scale` and `--skin` given on the command line are remembered;
 `--scale auto` and `--skin default` undo them.

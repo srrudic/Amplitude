@@ -348,8 +348,10 @@ rpm: linux | $(RPM_TOOLCHAIN)
 #   amplitude-<ver>-win64.zip
 #   amplitude_<ver>_<arch>.deb
 #   amplitude-<ver>-1.<arch>.rpm
+#   amplitude-<ver>-linux-<arch>.tar.gz   portable: the program, its icon and menu entry, a README
 #   amplitude-<ver>.tar.gz       the source, as last committed to git
 DIST := build/dist
+LINUX_PORTABLE := amplitude-$(VERSION)-linux-$(RPM_ARCH)
 
 dist: all
 	rm -rf $(DIST)
@@ -362,6 +364,13 @@ dist: all
 	    (cd $(DIST) && zip -q -r -9 amplitude-$(VERSION)-win$$bits.zip amplitude-$(VERSION)-win$$bits) && \
 	    rm -r $(DIST)/amplitude-$(VERSION)-win$$bits || exit 1; \
 	done
+	mkdir -p $(DIST)/$(LINUX_PORTABLE)
+	install -m755 $(LINUX_DIR)/amplitude $(DIST)/$(LINUX_PORTABLE)/amplitude
+	install -m644 LICENSE packaging/amplitude.desktop $(DIST)/$(LINUX_PORTABLE)/
+	install -m644 assets/icons/amplitude-128.png $(DIST)/$(LINUX_PORTABLE)/amplitude.png
+	sed -e 's/@VERSION@/$(VERSION)/' -e 's/@ARCH@/$(RPM_ARCH)/' packaging/README-linux.txt > $(DIST)/$(LINUX_PORTABLE)/README.txt
+	tar -C $(DIST) --owner=0 --group=0 --numeric-owner -czf $(DIST)/$(LINUX_PORTABLE).tar.gz $(LINUX_PORTABLE)
+	rm -r $(DIST)/$(LINUX_PORTABLE)
 	git archive --format=tar.gz --prefix=amplitude-$(VERSION)/ -o $(DIST)/amplitude-$(VERSION).tar.gz HEAD .
 	@ls -l $(DIST)
 

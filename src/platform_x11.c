@@ -1072,12 +1072,30 @@ void plat_screen_rect(int sx, int sy, int *x, int *y, int *w, int *h)
         XFree(data);
 }
 
-/* $XDG_CONFIG_HOME/amplitude/, falling back to ~/.config/amplitude/. */
+/* $XDG_CONFIG_HOME/amplitude/, falling back to ~/.config/amplitude/. But a
+ * file called amplitude.ini beside the program makes it "portable", as on
+ * Windows: then that folder is the one, and nothing is kept elsewhere. */
 int plat_config_dir(char *out, size_t out_size)
 {
     const char *xdg = getenv("XDG_CONFIG_HOME"), *home = getenv("HOME");
+    char program[PATH_MAX], probe[PATH_MAX + 16];
+    ssize_t size = readlink("/proc/self/exe", program, sizeof program - 1);
     int len;
 
+    if (size > 0) {
+        char *slash;
+
+        program[size] = '\0';
+        slash = strrchr(program, '/');
+        if (slash) {
+            slash[1] = '\0';
+            snprintf(probe, sizeof probe, "%samplitude.ini", program);
+            if (access(probe, F_OK) == 0 && strlen(program) < out_size) {
+                strcpy(out, program);
+                return 1;
+            }
+        }
+    }
     if (xdg && *xdg) {
         len = snprintf(out, out_size, "%s", xdg);
     } else if (home && *home) {

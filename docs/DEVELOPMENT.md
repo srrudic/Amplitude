@@ -585,7 +585,7 @@ published to GitHub Pages whenever it changes. One-time setup:
 
 **A release**, by hand: commit, set `VERSION` and `RELEASE_DATE` in the
 Makefile, run `make dist`, create a GitHub Release whose tag is the
-version number with a "v" in front (`v0.2.1`) and attach the seven files
+version number with a "v" in front (`v0.2.1`) and attach the eight files
 from `build/dist/`. Then change the version in the download buttons of
 `website/index.html`, whose addresses have the form
 `https://github.com/srrudic/Amplitude/releases/download/<tag>/<file>`.
