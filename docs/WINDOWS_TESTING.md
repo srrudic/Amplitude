@@ -1064,19 +1064,74 @@ Windows**; T0b, T0c and D6 at 300% are the tests to repeat.
   about eight seconds in (and corrected once after a minute). Until then
   the field still reads 0.
 
-**Changed on Linux after the media overlay was added, and not yet run on
-Windows:** every library that is loaded while the player runs (wsock32 and
-wininet for streams, combase and ole32 for the overlay, wnaspi32 for CDs on
-Windows 98, and the fallback in `optional()`) is now asked for by its full
-path in the system directory (`src/win32_library.h`) instead of by name.
-By name, a library the system lacks, such as combase.dll before Windows 8,
-would be looked for in the current directory too, which is the folder of
-the file the player was started with. The tests that show the libraries
-are still found: T0a (a plain stream), T4 (a secure one), H6 and H7 (the
-overlay), and C11 on Windows 98. S5 as always.
+**Changed on Linux after the media overlay was added:** every library that
+the player's own code loads while it runs (wsock32 and wininet for streams,
+combase and ole32 for the overlay, wnaspi32 for CDs on Windows 98, and the
+fallback in `optional()`) is now asked for by its full path in the system
+directory (`src/win32_library.h`) instead of by name. By name, a library
+the system lacks, such as combase.dll before Windows 8, would be looked for
+in the current directory too, which is the folder of the file the player
+was started with. The tests that show the libraries are still found: T0a
+(a plain stream), T4 (a secure one), H6 and H7 (the overlay), and C11 on
+Windows 98. S5 as always.
 
-Also not yet run: when nothing is loaded any more (the playlist emptied
-with "New list" while a track's title was in the overlay), the overlay's
-title is now cleared and the change applied, where before it was cleared
-without the call that makes it show. `Get-AmpOverlay` after that should
-list no title for the player.
+Also changed: when nothing is loaded any more (the playlist emptied with
+"New list" while a track's title was in the overlay), the overlay's title
+is now cleared and the change applied, where before it was cleared without
+the call that makes it show.
+
+Both were run on Windows in the third run, below.
+
+### Third run, 10 October 2026: the media overlay
+
+By a Claude Code session on the same machine, for the overlay
+(`src/smtc.c`) and the two changes just described. Only the tests that
+concern them were run.
+
+Environment as in the second run. Commit tested: e3ea39b. Executables
+built here with w64devkit 2.10.0 (GCC 16.2.0), with no warnings in our own
+sources: `build\win32\amplitude.exe` 1,070,592 bytes and
+`build\win64\amplitude.exe` 1,312,256 bytes; again not the release
+executables. The test station ran on the embeddable Python 3.13.7 in
+`.toolchain\python`. `volume=0` and `cd_names=0` throughout; nothing was
+audible. Two silent two-minute WAVs, `First song.wav` and
+`Друга песма.wav`, were the tracks.
+
+Each row was run on both builds unless it says otherwise. H1, H2 and H8
+were run on 9 October, on the overlay as first written (a935428), and not
+again: a browser was playing in the overlay during this run, and a real
+key would have gone to it or to the player as Windows chose.
+
+| Id | Result (pass / fail / not run) | Notes, fix |
+|---|---|---|
+| S5 | pass | Both builds: COMDLG32, GDI32, KERNEL32, msvcrt, SHELL32, USER32 and nothing else. |
+| H1 | pass (9 October) | With another program in front, `keybd_event`: pause, resume, next, previous, stop, play. Each press acted once. The keys are not held as hot keys; they arrive through the overlay. 64-bit; on the 32-bit build pause, resume and next. |
+| H2 | pass (9 October) | The same with the player in front, where the key comes back as `WM_APPCOMMAND`: once each. 64-bit. |
+| H4, H5 | not run | As before. |
+| H6 | pass | `app=[amplitude.exe] status=Playing type=Music title=[First song]`, and `Друга песма` after Next. Nothing held as hot keys. combase.dll and ole32.dll loaded from System32. The entry is gone once the player has exited. |
+| H7 | pass | pause, play, toggle twice, next, prev, stop, play: the player did each once, and the overlay showed the new state and title each time. A browser that started playing halfway through got an entry of its own and was not affected. |
+| H8 | pass (9 October) | 100% to 125% from the menu: a new main window, the entry still there with state and title, pause, next and play still work. 64-bit. |
+| H9 | not run | Needs the user: the overlay as seen on the screen has not been looked at by anyone yet. |
+| New list | pass | With a title in the overlay, LIST and "New list": `status=Stopped type=Music title=[]`. |
+| T0a | pass | Time 00:05 and 00:08 in two shots, "128 KBPS 48 KHZ", "Artist - Second Song" in the title, "Test Radio" in the playlist and in the overlay, no knob on the seek bar; wsock32.dll loaded from system32; exit in 225 ms; the saved list holds the address. On the 32-bit build: playing, exit in 177 ms. |
+| T4 | pass | `https://ice1.somafm.com/groovesalad-128-mp3` and `https://somafm.com/groovesalad.pls`: playing (00:09 and 00:12, 128 kbps, 44 kHz, the song's title), wininet.dll loaded from system32, exit in 198 and 171 ms. The first of them on the 32-bit build too. |
+| C11 | not run | Windows 98. |
+
+Nothing had to be fixed. Seen along the way:
+
+- **miniaudio still asks for its libraries by name** (`ma_dlopen` in
+  `third_party/miniaudio.h`: kernel32, user32, advapi32, ole32, avrt,
+  dsound, winmm), when the sound is set up at the start. avrt.dll is only
+  asked for from Windows Vista on, where it exists, and a library the
+  system has is found in the system directory before the current one is
+  looked at. That leaves dsound.dll on a Windows 95 or NT 4 without
+  DirectX as the one name that could be picked up from the folder of the
+  file being opened. Not changed here.
+- **The overlay names the player "amplitude.exe"** and shows no icon of
+  its own. A proper name takes an application id, set on a Start menu
+  shortcut by the installer.
+- The helper gained `Get-AmpOverlay`, `Send-AmpOverlay` and
+  `Test-AmpOverlayAlone`, and `tests/windows/overlay.ps1`, which they run
+  in Windows PowerShell 5.1 (PowerShell 7 cannot reach the Windows
+  Runtime). `Send-AmpMediaKey` now also presses when the player is the
+  overlay's only entry.
