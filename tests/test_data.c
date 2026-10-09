@@ -74,6 +74,28 @@ static void count_breath(void)
     breaths++;
 }
 
+/* The whole of a small text file. */
+static const char *read_text(const char *path)
+{
+    static char text[4096];
+    FILE *f = fopen(path, "rb");
+    size_t size = f ? fread(text, 1, sizeof text - 1, f) : 0;
+
+    if (f)
+        fclose(f);
+    text[size] = '\0';
+    return text;
+}
+
+/* A shell command to be run in a directory. */
+static const char *command_in(const char *dir, const char *command)
+{
+    static char line[1024];
+
+    snprintf(line, sizeof line, "cd '%s' && %s", dir, command);
+    return line;
+}
+
 static void test_playlist(void)
 {
     const char *list = test_path("list.m3u"), *copy = test_path("copy.m3u");
@@ -175,6 +197,49 @@ static void test_playlist(void)
     CHECK_INT(playlist_load(copy, count_breath), 2);
     CHECK_INT(breaths, 0);                      /* too short a list to pause for */
     CHECK_STR(playlist_get(0)->path, expected);
+
+    /* Saving: what lies in the playlist's folder or below it is written
+     * relative to it, the rest in full; addresses and CD tracks as they are. */
+    playlist_add("http://radio.example/live");
+    playlist_add("cdda:///dev/sr0/3");
+    snprintf(expected, sizeof expected, "%s/beside.mp3", test_dir);
+    playlist_add(expected);
+    snprintf(expected, sizeof expected, "%s-elsewhere/not below.mp3", test_dir);   /* only the name begins alike */
+    playlist_add(expected);
+    CHECK(playlist_save(copy));
+    snprintf(expected, sizeof expected, "sub/relative song.mp3\n/abs/Other.Name.flac\nhttp://radio.example/live\n"
+                                        "cdda:///dev/sr0/3\nbeside.mp3\n%s-elsewhere/not below.mp3\n", test_dir);
+    CHECK_STR(read_text(copy), expected);
+    /* Saved somewhere else, nothing is below it. */
+    CHECK(system(command_in(test_dir, "mkdir other")) == 0);
+    CHECK(playlist_save(test_path("other/far.m3u")));
+    CHECK(strstr(read_text(test_path("other/far.m3u")), "/sub/relative song.mp3\n/abs/") != NULL);
+    CHECK(strstr(read_text(test_path("other/far.m3u")), "/beside.mp3\n") != NULL);
+    playlist_free();
+
+    /* The folder is moved, playlist and all: the relative entries follow. */
+    CHECK(system(command_in(test_dir, "mkdir moved && cp copy.m3u moved/")) == 0);
+    CHECK_INT(playlist_load(test_path("moved/copy.m3u"), NULL), 6);
+    snprintf(expected, sizeof expected, "%s/moved/sub/relative song.mp3", test_dir);
+    CHECK_STR(playlist_get(0)->path, expected);
+    snprintf(expected, sizeof expected, "%s/moved/beside.mp3", test_dir);
+    CHECK_STR(playlist_get(4)->path, expected);
+    CHECK_STR(playlist_get(1)->path, "/abs/Other.Name.flac");
+    playlist_free();
+
+    /* A list written on Windows separates folders its own way. Here that
+     * is taken for a separator only if no file is called exactly so. */
+    CHECK(system(command_in(test_dir, "mkdir -p win/a && touch 'win/a/b.mp3' 'win/odd\\name.mp3'")) == 0);
+    {
+        static const char windows_list[] = "a\\b.mp3\r\nodd\\name.mp3\r\n";
+
+        test_write(test_path("win/list.m3u"), windows_list, sizeof windows_list - 1);
+    }
+    CHECK_INT(playlist_load(test_path("win/list.m3u"), NULL), 2);
+    snprintf(expected, sizeof expected, "%s/win/a/b.mp3", test_dir);
+    CHECK_STR(playlist_get(0)->path, expected);
+    snprintf(expected, sizeof expected, "%s/win/odd\\name.mp3", test_dir);
+    CHECK_STR(playlist_get(1)->path, expected);
     playlist_free();
     CHECK_INT(playlist_load(test_path("missing.m3u"), NULL), 0);
 }

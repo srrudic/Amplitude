@@ -158,6 +158,14 @@ the playlist are saved on exit and restored on the next start:
 - Windows: `%APPDATA%\Amplitude\`, or next to `amplitude.exe` on systems
   without that folder (Windows 9x).
 
+**Paths in playlists.** A saved `.m3u` names the tracks that lie in its own
+folder, or in folders below it, by their path from there
+(`Album/01 Song.mp3`), and everything else by its full path. So a list
+saved next to the music it is about keeps working when that folder is
+moved, renamed or copied to another computer, Windows or Linux. The same
+goes for the playlist the player remembers between runs, which matters
+for a portable copy with the music beside it on the same stick.
+
 For a portable install, on either system, create an empty `amplitude.ini`
 next to the program and everything stays in that folder. The portable
 downloads come with that file already in place. Where the folder cannot

@@ -351,10 +351,28 @@ int playlist_load(const char *path, void (*breathe)(void))
             entry += 3;     /* UTF-8 byte order mark */
         if (!*entry || *entry == '#')
             continue;
-        if (is_absolute(entry))
+        if (is_absolute(entry)) {
             snprintf(full, sizeof full, "%s", entry);
-        else
+        } else {
+            /* Relative to where the playlist is. */
             snprintf(full, sizeof full, "%.*s%s", (int)(dir_end - path), path, entry);
+#ifndef _WIN32
+            /* One written on Windows may use its separator; here that is
+             * an ordinary character, so it is only taken for one when no
+             * file has the name as it stands. */
+            if (strchr(entry, '\\')) {
+                FILE *there = plat_fopen(full, "rb");
+                char *p;
+
+                if (there)
+                    fclose(there);
+                else
+                    for (p = full + (dir_end - path); *p; p++)
+                        if (*p == '\\')
+                            *p = '/';
+            }
+#endif
+        }
         if (playlist_add(full) >= 0)
             added++;
         if (breathe && added % BREATHE_EVERY == 0)
@@ -364,14 +382,56 @@ int playlist_load(const char *path, void (*breathe)(void))
     return added;
 }
 
+/* If `path` lies in the folder `dir` (given with its closing separator, as
+ * `dir_len` characters) or below it: the rest of it. Otherwise NULL. On
+ * Windows, where names are so, the comparison ignores the case of ASCII
+ * letters and takes either separator for the other. */
+static const char *below(const char *dir, size_t dir_len, const char *path)
+{
+    size_t i;
+
+    if (!dir_len || path_is_url(path) || path_is_cd(path))
+        return NULL;
+    for (i = 0; i < dir_len; i++) {
+        int a = (unsigned char)dir[i], b = (unsigned char)path[i];
+
+#ifdef _WIN32
+        a = a == '\\' ? '/' : a >= 'A' && a <= 'Z' ? a + 32 : a;
+        b = b == '\\' ? '/' : b >= 'A' && b <= 'Z' ? b + 32 : b;
+#endif
+        if (a != b)
+            return NULL;    /* (also where the path ends first) */
+    }
+    return path[dir_len] ? path + dir_len : NULL;
+}
+
+/* Tracks in the playlist's own folder or below it are written relative to
+ * it, the way .m3u files usually are: such a list goes on working when the
+ * folder is moved, renamed or carried to another machine. Anything else
+ * keeps its full path. */
 int playlist_save(const char *path)
 {
     FILE *f = plat_fopen(path, "w");
+    size_t dir_len = (size_t)(path_basename(path) - path);
     int i;
 
     if (!f)
         return 0;
-    for (i = 0; i < count; i++)
-        fprintf(f, "%s\n", tracks[i].path);
+    for (i = 0; i < count; i++) {
+        const char *rest = below(path, dir_len, tracks[i].path);
+
+        if (!rest) {
+            fprintf(f, "%s\n", tracks[i].path);
+            continue;
+        }
+        for (; *rest; rest++) {
+#ifdef _WIN32
+            fputc(*rest == '\\' ? '/' : *rest, f);    /* the separator every system reads */
+#else
+            fputc(*rest, f);
+#endif
+        }
+        fputc('\n', f);
+    }
     return fclose(f) == 0;
 }
