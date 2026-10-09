@@ -90,6 +90,11 @@ enum {
 enum { VIS_SPECTRUM, VIS_SCOPE, VIS_OFF, VIS_MODES };
 
 #define UI_BLINK_MS 500     /* half period of the paused clock and the text cursor */
+#define UI_MARQUEE_MS 40    /* per pixel that a title too long for the display scrolls */
+
+/* Was the title scrolling when the main window was last drawn? Then the
+ * window has to be drawn again every UI_MARQUEE_MS, playing or not. */
+int  ui_title_scrolls(void);
 
 /* Bottom left corner of the cog button, where its menu opens. */
 #define UI_MENU_X 214

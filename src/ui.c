@@ -62,7 +62,12 @@ static const Rect *element_rect(const Skin *skin, int element)
 
 static const Rect title_field = { 111, 27, 154, 6 };
 
-#define MARQUEE_MS     40       /* per pixel the title scrolls */
+static int title_scrolls;       /* see ui_title_scrolls() */
+
+int ui_title_scrolls(void)
+{
+    return title_scrolls;
+}
 #define SEEK_THUMB_W   29
 #define SLIDER_THUMB_W 14
 #define SLIDER_FRAMES  28
@@ -173,8 +178,9 @@ static void draw_title(Canvas *c, const Skin *skin, const UiModel *m)
 
     gfx_set_clip(c, r->x, y, r->w, unicode ? font->h : skin->text_h);
     /* Marquee: text that does not fit chases its own tail around a loop. */
+    title_scrolls = scrolling;
     if (scrolling)
-        x -= (int)((m->ticks / MARQUEE_MS) % (uint32_t)loop);
+        x -= (int)((m->ticks / UI_MARQUEE_MS) % (uint32_t)loop);
     for (pass = 0; pass <= scrolling; pass++, x += loop) {
         const char *tail = scrolling && !pass ? separator : "";
 
