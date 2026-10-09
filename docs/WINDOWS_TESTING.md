@@ -1063,3 +1063,14 @@ Windows**; T0b, T0c and D6 at 300% are the tests to repeat.
 - *Fixed:* a stream that states no bitrate shows a measured one, from
   about eight seconds in (and corrected once after a minute). Until then
   the field still reads 0.
+
+**Changed on Linux after the media overlay was added, and not yet run on
+Windows:** every library that is loaded while the player runs (wsock32 and
+wininet for streams, combase and ole32 for the overlay, wnaspi32 for CDs on
+Windows 98, and the fallback in `optional()`) is now asked for by its full
+path in the system directory (`src/win32_library.h`) instead of by name.
+By name, a library the system lacks, such as combase.dll before Windows 8,
+would be looked for in the current directory too, which is the folder of
+the file the player was started with. The tests that show the libraries
+are still found: T0a (a plain stream), T4 (a secure one), H6 and H7 (the
+overlay), and C11 on Windows 98. S5 as always.

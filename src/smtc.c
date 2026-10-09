@@ -11,6 +11,8 @@
  * state and the title. The position, seeking and cover art are left out. */
 #include "smtc.h"
 
+#include "win32_library.h"
+
 #include <string.h>
 
 /* From the Windows Runtime headers. */
@@ -190,7 +192,7 @@ static int load(void)
         return loaded > 0;
     loaded = -1;
     for (i = 0; i < sizeof symbols / sizeof symbols[0]; i++) {
-        HMODULE module = LoadLibraryA(symbols[i].dll);
+        HMODULE module = win32_system_library(symbols[i].dll);
         FARPROC address = module ? GetProcAddress(module, symbols[i].name) : NULL;
 
         if (!address)

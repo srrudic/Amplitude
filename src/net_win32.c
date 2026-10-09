@@ -10,6 +10,7 @@
  * which brings the system's own encryption and certificates. How modern a
  * server it can talk to therefore depends on the Windows version. */
 #include "platform.h"
+#include "win32_library.h"
 
 #include <stdlib.h>
 #include <windows.h>
@@ -56,7 +57,7 @@ typedef struct { const char *name; void *slot; } Symbol;
 /* Loads a library and looks all the symbols up. Returns 0 if any is missing. */
 static int load(const char *dll, const Symbol *symbols, int count)
 {
-    HMODULE module = LoadLibraryA(dll);
+    HMODULE module = win32_system_library(dll);
     int i;
 
     for (i = 0; module && i < count; i++) {

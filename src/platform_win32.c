@@ -11,6 +11,7 @@
  * throughout, which exist everywhere. */
 #include "platform.h"
 #include "smtc.h"
+#include "win32_library.h"
 
 #include <windows.h>
 #include <commdlg.h>
@@ -74,7 +75,7 @@ static FARPROC optional(const char *dll, const char *name)
     HMODULE module = GetModuleHandleA(dll);
 
     if (!module)
-        module = LoadLibraryA(dll);
+        module = win32_system_library(dll);
 
     return module ? GetProcAddress(module, name) : NULL;
 }

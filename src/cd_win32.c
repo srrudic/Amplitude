@@ -12,6 +12,7 @@
  * nothing of drive letters, so the first CD drive it lists is taken to be
  * the first drive letter that is a CD drive, and so on. */
 #include "cd.h"
+#include "win32_library.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,7 +95,7 @@ static int aspi_adapters(void)
     static int count = -1;
 
     if (count < 0) {
-        HMODULE library = (GetVersion() & 0x80000000u) ? LoadLibraryA("wnaspi32.dll") : NULL;
+        HMODULE library = (GetVersion() & 0x80000000u) ? win32_system_library("wnaspi32.dll") : NULL;
         DWORD info;
 
         count = 0;
