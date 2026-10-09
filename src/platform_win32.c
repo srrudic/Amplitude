@@ -10,6 +10,7 @@
  * systems that lack them. Windows and messages use the ANSI functions
  * throughout, which exist everywhere. */
 #include "platform.h"
+#include "smtc.h"
 
 #include <windows.h>
 #include <commdlg.h>
@@ -30,6 +31,7 @@
 #ifndef WM_MOUSEWHEEL
 #define WM_MOUSEWHEEL 0x020A
 #endif
+#define WM_MEDIA_BUTTON (WM_APP + 1)    /* a button of the media overlay; see smtc.h */
 
 struct PlatWindow {
     HWND hwnd;
@@ -265,6 +267,18 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpar
             push_event(&ev);
         }
         return 0;
+    case WM_MEDIA_BUTTON: {
+        static const int keys[] = { [SMTC_PLAY] = PK_MEDIA_PLAY, [SMTC_PAUSE] = PK_MEDIA_PAUSE,
+                                    [SMTC_STOP] = PK_MEDIA_STOP, [SMTC_NEXT] = PK_MEDIA_NEXT,
+                                    [SMTC_PREVIOUS] = PK_MEDIA_PREV };
+
+        if (wparam < sizeof keys / sizeof keys[0]) {
+            ev.type = PEV_KEY_DOWN;
+            ev.key = keys[wparam];
+            push_event(&ev);
+        }
+        return 0;
+    }
     case 0x0319: {      /* WM_APPCOMMAND: the command is in the high word, under four flag bits */
         int command = (int)(HIWORD(lparam) & 0x0FFF), i;
 
@@ -319,8 +333,11 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpar
         if (ev.key) {
             ev.type = PEV_KEY_DOWN;
             push_event(&ev);
+            return 0;
         }
-        return 0;
+        /* A media key that is not a hot key comes back as WM_APPCOMMAND,
+         * but only if the system gets to see it. */
+        break;
     case WM_CHAR: {
         /* A typed character in the ANSI code page; reported as UTF-8. */
         char ansi[2] = { (char)wparam, '\0' };
@@ -461,6 +478,7 @@ void plat_window_destroy(PlatWindow *win)
 
     if (win->popup)
         ReleaseCapture();
+    smtc_detach(win->hwnd);
     DestroyWindow(win->hwnd);
     /* Events still queued for this window must not outlive it. */
     for (i = queue_head; i != queue_tail; i = (i + 1) % QUEUE_SIZE)
@@ -646,9 +664,15 @@ void plat_instance_claim(PlatWindow *main_window)
 
     /* Later instances find the main window by its title, so there is
      * nothing to claim for that. Being the player is when the media keys
-     * become ours: they are registered as hot keys so that they work
-     * whichever program has the keyboard. Registering fails harmlessly if
-     * another program has them, and ends with the window. */
+     * become ours. Where Windows has a media overlay (see smtc.h) the
+     * player joins it, and the keys reach it from there, as they reach
+     * whichever player the overlay shows. */
+    if (smtc_attach(main_window->hwnd, WM_MEDIA_BUTTON))
+        return;
+    /* Elsewhere they are registered as hot keys so that they work
+     * whichever program has the keyboard; never both, or each press would
+     * count twice. Registering fails harmlessly if another program has
+     * them, and ends with the window. */
     for (i = 0; i < MEDIA_KEYS; i++)
         if (media_keys[i].vk)
             RegisterHotKey(main_window->hwnd, i + 1, 0, media_keys[i].vk);
@@ -656,12 +680,10 @@ void plat_instance_claim(PlatWindow *main_window)
 
 void plat_media_update(int state, const char *title, double position, double length)
 {
-    /* Windows has nowhere to show this short of the modern media overlay,
-     * which is out of reach of a program that also runs on old systems. */
-    (void)state;
-    (void)title;
+    /* The overlay has no use for the times. */
     (void)position;
     (void)length;
+    smtc_update(state, title);
 }
 
 /* --- Dialogs ---------------------------------------------------------------- */

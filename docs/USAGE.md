@@ -57,7 +57,11 @@ program has the keyboard, and so do the buttons of Bluetooth headphones and
 the desktop's own media controls. On Linux this goes through the desktop's
 media-player interface (MPRIS), which also lets the panel show what is
 playing; where there is none, the keys are taken from the X server
-directly. On Windows they are registered as system-wide hot keys.
+directly. On Windows 8.1 and later the player joins the system's media
+overlay, which shows the title and the buttons beside the volume when it
+changes, on the lock screen and in the taskbar's quick settings; the keys
+then go to whichever player the overlay shows. On older Windows they are
+registered as system-wide hot keys.
 
 While the volume, balance, seek or an equaliser slider is held, the title
 display shows its value ("Volume: 75%", "Balance: 20% left", "Seek: 1:23 /

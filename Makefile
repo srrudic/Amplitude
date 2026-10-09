@@ -135,8 +135,8 @@ export PATH := $(LOCAL_MINGW):$(PATH)
 endif
 WIN_DIR   := build/win32
 WIN64_DIR := build/win64
-WIN_OBJ   := $(call objects,$(WIN_DIR),platform_win32.c net_win32.c cd_win32.c) $(WIN_DIR)/resources.o
-WIN64_OBJ := $(call objects,$(WIN64_DIR),platform_win32.c net_win32.c cd_win32.c) $(WIN64_DIR)/resources.o
+WIN_OBJ   := $(call objects,$(WIN_DIR),platform_win32.c smtc.c net_win32.c cd_win32.c) $(WIN_DIR)/resources.o
+WIN64_OBJ := $(call objects,$(WIN64_DIR),platform_win32.c smtc.c net_win32.c cd_win32.c) $(WIN64_DIR)/resources.o
 WIN_LIBS := -lgdi32 -lcomdlg32 -lshell32
 WIN_LDFLAGS := -mwindows -static-libgcc
 # No -fdata-sections here: on PE targets it moves zero-initialised data out

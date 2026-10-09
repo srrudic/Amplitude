@@ -28,7 +28,7 @@ Windows goes, **only compiled**:
 |---|---|---|
 | Fixes from the first run: unplayable files are skipped, windows stay on screen, four-digit bitrate | none | repeat P1 (WAV), P4, D1 and D6 at 200% and 300% |
 | Several files opened at once from Explorer; one instance | the named mutex and hand-over in `platform_win32.c` | 4.12 |
-| Media keys | hot keys in `platform_win32.c` | 4.13 |
+| Media keys | the media overlay (`smtc.c`), or hot keys in `platform_win32.c` | 4.13 |
 | Jump to file window enlarged, with buttons; magnifier button in the playlist; all three windows shown on first start | none | shots of each, as in 4.4 and 4.5 |
 | Streams: internet radio (MP3, AAC, Ogg Vorbis, Opus), HLS, files on the web; the Open location window | all of `src/net_win32.c` (Winsock, WinINet, threads); clipboard reading | 4.14 |
 | Audio CDs, disc images, CD-Text, names from MusicBrainz | all of `src/cd_win32.c` (device access, and ASPI for Windows 98) | 4.15 |
@@ -191,7 +191,11 @@ What else the helper has, and what to know when using it:
 - **Media keys**: `Test-AmpMediaKeys` says whether the four keys are held
   as hot keys (check that it is false before the player starts and true
   after). `Send-AmpMediaKey 0xB3` presses the real key and refuses when
-  nobody holds it, so that it cannot start some other player.
+  nobody holds it, so that it cannot start some other player. Where the
+  player is in the media overlay instead (4.13), `Get-AmpOverlay` lists
+  what the overlay shows, `Send-AmpOverlay pause` presses one of its
+  buttons for the player alone, and `Send-AmpMediaKey` presses the real key
+  only while the player is the overlay's one and only entry.
 - **The menu needs a moment.** Right after the click on the cog there is no
   menu window yet; with `-Wait` under about 150 ms the next call does not
   find it.
@@ -505,8 +509,10 @@ the player, the others waiting up to three seconds for its window.
 
 ### 4.13 Media keys *(added later)*
 
-The main window registers the play/pause, stop, next and previous keys as
-system-wide hot keys, and also answers `WM_APPCOMMAND`.
+On Windows 8.1 and later the player joins the media overlay (`src/smtc.c`)
+and gets the keys from it; H6 to H9 are about that. Elsewhere the main
+window registers the play/pause, stop, next and previous keys as
+system-wide hot keys. Either way it also answers `WM_APPCOMMAND`.
 
 - **H1** With another program in front, a play/pause key press (real, or
   `keybd_event` with virtual key 0xB3) pauses and resumes; 0xB0 and 0xB1
@@ -517,6 +523,19 @@ system-wide hot keys, and also answers `WM_APPCOMMAND`.
 - **H4** *(needs the user)* The buttons of a Bluetooth headset do the same.
 - **H5** With another player running that also wants the keys, note which
   one gets them; Amplitude must start and run normally either way.
+- **H6** *(overlay)* With a track playing, `Get-AmpOverlay` lists
+  `amplitude.exe` as playing music, with the track's title (try one with
+  letters outside the code page) and nothing held as hot keys. The entry is
+  gone once the player has exited.
+- **H7** *(overlay)* `Send-AmpOverlay` with `pause`, `play`, `toggle`,
+  `next`, `prev` and `stop`: the player does each, once, and the overlay
+  shows the new state and title afterwards.
+- **H8** *(overlay)* H3 again: after a change of size the entry is still
+  there, with the state and title, and its buttons still work.
+- **H9** *(needs the user)* Change the volume with the keyboard while a
+  track plays: the overlay beside the volume shows the title and its
+  buttons work. The same in the taskbar's quick settings and on the lock
+  screen.
 
 ### 4.14 Streams *(added later)*
 

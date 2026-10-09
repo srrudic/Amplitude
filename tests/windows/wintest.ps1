@@ -289,11 +289,35 @@ function Test-AmpMediaKeys {
     return $true
 }
 
+# The media overlay of Windows 8.1 and later, which the player joins instead
+# of holding the keys: one line for each player it shows, as
+# "app=[amplitude.exe] status=Playing type=Music title=[...]".
+function Get-AmpOverlay {
+    return @(powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $script:AmpRoot "tests\windows\overlay.ps1"))
+}
+
+# Presses a button of the overlay (play, pause, toggle, stop, next, prev) for
+# the player only; other programs in the overlay are left alone.
+function Send-AmpOverlay([string]$Button) {
+    [void](powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $script:AmpRoot "tests\windows\overlay.ps1") -Do $Button)
+    Start-Sleep -Milliseconds 700
+}
+
+# Whether the overlay shows the player and nobody else, so that a media key
+# can only go to it.
+function Test-AmpOverlayAlone {
+    $shown = @(Get-AmpOverlay)      # a single line would come back as a bare string
+    return $shown.Count -eq 1 -and $shown[0].StartsWith("app=[amplitude.exe]")
+}
+
 # Presses the real key, for the whole system. It refuses unless the keys are
-# held (Test-AmpMediaKeys): a press nobody holds goes to whatever other
-# player the user has, and may start it playing aloud.
+# held (Test-AmpMediaKeys) or the player is alone in the overlay: a press
+# that is nobody's goes to whatever other player the user has, and may start
+# it playing aloud.
 function Send-AmpMediaKey([int]$VirtualKey) {
-    if (-not (Test-AmpMediaKeys)) { throw "the media keys are not held as hot keys: not pressing" }
+    if (-not (Test-AmpMediaKeys) -and -not (Test-AmpOverlayAlone)) {
+        throw "the media keys are not held as hot keys, nor is the player alone in the media overlay: not pressing"
+    }
     [AmpWin]::keybd_event([byte]$VirtualKey, 0, 1, [UIntPtr]::Zero)      # KEYEVENTF_EXTENDEDKEY
     [AmpWin]::keybd_event([byte]$VirtualKey, 0, 3, [UIntPtr]::Zero)      # ... | KEYEVENTF_KEYUP
     Start-Sleep -Milliseconds 900

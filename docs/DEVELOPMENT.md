@@ -194,6 +194,7 @@ Rules that keep this manageable:
     src/ui_dialog.c       frame and title bar shared by the two small windows
     src/util.h            small shared helpers (paths, clamp, array length)
     src/mpris.c           Linux: media keys and controls over D-Bus (MPRIS)
+    src/smtc.c            Windows: media keys and controls through the media overlay
     src/ui_menu.c         right-click popup menu
     src/ui_jump.c         jump-to-file window
     src/playlist.c        track list, M3U loading and saving
@@ -440,8 +441,21 @@ the source is to that format.
   run-time dependency. `platform_x11.c` polls it with the X connection and
   turns requests into `PK_MEDIA_*` key events for the main window. Without
   a session bus it grabs the XF86Audio keys from the X server instead; it
-  never does both, or each press would count twice. On Windows the same
-  key events come from `RegisterHotKey` and `WM_APPCOMMAND`.
+  never does both, or each press would count twice.
+- **`smtc.c`** (Windows) is the same for the media overlay of Windows 8.1
+  and later (the "System Media Transport Controls"): it announces the
+  player as the program behind the main window, passes on the state and
+  the title, and receives the overlay's buttons, which is also how the
+  media keys arrive there. The overlay belongs to the Windows Runtime; its
+  few functions are looked up when the player starts and its interfaces
+  are declared by hand, so the executable still loads on systems without
+  it. A button press may come in on any thread, so the handler only posts a
+  message to the main window, where `platform_win32.c` turns it into a
+  `PK_MEDIA_*` key event. Without the overlay the keys are taken with
+  `RegisterHotKey` instead; again never both. `WM_APPCOMMAND` is answered
+  either way, which is how a key pressed while the player has the keyboard
+  arrives. The overlay is tied to a window, so it is attached anew when
+  the windows are recreated.
 - **`config.c`** reads and writes `amplitude.ini` as `key=value` lines of
   integers. Window offsets are stored in logical pixels.
 - **`presets.c`** holds the equaliser presets and maps a genre tag to one.
