@@ -935,7 +935,7 @@ last row is a shorter pass with the 32-bit build.
 | T6b | pass, not listened to | `https://radio.plaza.one/ogg` and `/opus`, `http://icecast.err.ee/vikerraadio.opus`: playing, titles shown. No change of song was waited for. |
 | T6c | pass | fip (280 kbps), iHeart (24), BBC World Service (transport stream, 101) and the MP4-fragment film sound: each playing after 9 s, 12 s further on 12 s later. fip for twenty minutes: see R5. |
 | T7 | not run | Needs the cable out. T0e is the same thing with the local station. |
-| T8 | 20 minutes, not an hour | See R5. |
+| T8 | pass | Run afterwards, in the night of 8 October, at 150%, with the handles counted by kind every five minutes. **fip over https for an hour**: 482 handles after a minute, 556 after 30, and 552 to 556 for the 30 minutes after that; private memory 10.1 to 11.2 MB; GDI 13, USER 18; 102 s of processor time (2.8% of one core); exit in 236 ms. **Four 20 s WAVs on repeat for an hour** (a change of track every 20 s): 223 handles for 45 minutes on end, then 252, 282, 307 and 333 in the last fifteen; private memory 6.6 to 7.0 MB. **Nothing playing for 20 minutes**: 217 throughout. Every step up, in both hours, falls within a minute of the screens going to sleep or waking. See "Still open". |
 | T9 | not run | Windows XP. |
 | C1-C9, C12, C13 | not run | No CD drive on this machine. One part of C6 could be run: "Play audio CD" with no drive at all says "NO AUDIO CD FOUND" and the player carries on. |
 | C10 | pass | "Band - Named on the Disc" (0:05) and "CD Track 02"; 1411 kbps; track 2 follows by itself; the list is saved as `cdda://C:\...\disc.cue/1` and `/2`. Seeking was checked on the longer image of C14: a click mid-bar goes from 00:05 to 01:43, and a double click on row 5 plays track 5. |
@@ -945,7 +945,7 @@ last row is a shorter pass with the 32-bit build.
 | R2 | not run | Nothing new to measure. |
 | R3 | pass | 200 rounds over thirteen tracks (local stations, an https station, both disc images): GDI 13 and USER 18 throughout. Handles 293 at the start and 476 to 484 from the first https track on, which is what WinINet holds once loaded; level after that. Private memory 6.8 to 8.2 MB. |
 | R4 | pass | Ten changes between 100% and 200% with an https station playing: private memory 6.5 MB before, 12.2 at 200%, 7.9 after; handles 478 throughout. With a disc image: 6.1, 11.8, 6.4 MB; handles 254. Still playing afterwards both times. |
-| R5 | R5PENDING | R5PENDING |
+| R5 | pass | At 150%, three windows, sleep held off. **fip over https for 20 minutes**: playing at the end (20:08 on the clock), 35 s of processor time (2.9% of one core), private memory 10.2 MB after a minute and 11.2 at the end, GDI 13, USER 18 or 19; exit in 187 ms. **A two-track disc image and two 20 s WAVs on repeat for 12 minutes** (a track change every 5 to 20 s): 13 s of processor time, private memory 8.5 to 8.8 MB, GDI 13, USER 18. The handle count went up in steps of about 30 in both (470 to 628, and 254 to 305); T8 found out why. |
 | 32-bit | pass | No file, a Cyrillic WAV, `/radio`, `/radio.aac`, `/radio.opus`, `/hls/mp4.m3u8`, the https station, fip, the expired certificate, the disc image, the names of C14, and M1 once: all as with the 64-bit build. |
 
 #### Fixes made during the second run
@@ -997,8 +997,28 @@ Not run, and what each would take:
   **T7**, **H4**: the user.
 - **M4, and the installer as a whole** (4.10); **K1 to K3**; **U6, P6, P7,
   L5** from the first run: as before.
-- **T8 for a full hour**, and **the release executables**: as before, what
-  ran was built here.
+- **The release executables**: as before, what ran was built here.
+- **A few handles are left behind each time the sound devices change.**
+  This is what the rising count in R5 was, and T8 settled it. The count
+  does not rise with time, nor with segments fetched or tracks changed: it
+  steps up by 25 to 30 at the moments the Windows audio log
+  (Microsoft-Windows-Audio, Operational) records "Audio device state
+  changed", which on this machine is every time the screens go to sleep or
+  wake, since they carry a sound output. Between such moments it is level
+  for as long as was watched (45 minutes). What stays behind each time is
+  a thread pool with its timers and completion ports, an ALPC port, some
+  events and two sections; no threads, no files, no memory to speak of.
+  Neither network library nor the CD code is involved (it happens with
+  plain files). Not found out: whether it is miniaudio's switching to the
+  new device that leaves them or Windows' own sound components inside the
+  process, and whether a player that is not playing does it too (no such
+  moment fell into the 20 idle minutes). At a hundred screen sleeps a day
+  it is under 3000 handles, far from any limit: a thing to know, not a
+  thing to fix before a release.
+
+A first attempt at R5 ended when the player's window was closed by hand
+after 17 minutes; its figures were the same as the second attempt's, minute
+for minute.
 
 Seen along the way. None of it is specific to Windows; all three are in
 portable code and will be the same on Linux:
