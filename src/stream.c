@@ -178,6 +178,11 @@ size_t stream_buffered(const Stream *s)
     return s->head - s->tail;
 }
 
+size_t stream_consumed(const Stream *s)
+{
+    return s->tail;
+}
+
 /* Adds audio bytes, waiting for room. Returns 0 if the stream was closed
  * meanwhile. */
 static int ring_write(Stream *s, const unsigned char *data, size_t size)

@@ -1032,3 +1032,15 @@ portable code and will be the same on Linux:
   shown; when the size changes the old layout is kept and merely moved up.
 - **"0 KBPS"** for Ogg stations and for HLS without a stated bandwidth
   (T0b); blank would look better.
+
+All three were fixed on Linux afterwards and **have not been re-run on
+Windows**; T0b, T0c and D6 at 300% are the tests to repeat.
+
+- *Fixed:* a stream that fails is passed over when the list reached it by
+  itself or by Next (at most once round the list), and left showing
+  "CANNOT PLAY" when it was picked by hand, as with files.
+- *Fixed:* after a change of size the playlist is docked beside the main
+  window if the stack no longer fits on the screen.
+- *Fixed:* a stream that states no bitrate shows a measured one, from
+  about eight seconds in (and corrected once after a minute). Until then
+  the field still reads 0.

@@ -16,6 +16,7 @@
  *   rclick W x y sx sy       right click; sx, sy is the screen position reported
  *   drag W x y dx dy         left-button drag by (dx, dy)
  *   menu x y                 click inside the open popup menu
+ *   onscreen W               check that all of a window is on the screen
  *   focus W                  give a window the keyboard focus
  *   unfocus                  take the focus away from the player
  *   drop W uri-list          drag and drop (file:// URIs separated by \r\n)
@@ -344,6 +345,15 @@ int main(int argc, char **argv)
                      visible ? "visible" : "hidden", w, h);
             check(visible && w == ARG(2) && h == ARG(3), what);
             i += 3;
+        } else if (!strcmp(cmd, "onscreen")) {
+            char what[96];
+
+            NEED(1);
+            geometry(window(ARG(1)), &x, &y, &w, &h, &visible);
+            snprintf(what, sizeof what, "window %d is wholly on the screen (%d,%d %dx%d)", ARG(1), x, y, w, h);
+            check(visible && x >= 0 && y >= 0 && x + w <= DisplayWidth(dpy, DefaultScreen(dpy)) &&
+                  y + h <= DisplayHeight(dpy, DefaultScreen(dpy)), what);
+            i += 1;
         } else if (!strcmp(cmd, "hidden")) {
             NEED(1);
             geometry(window(ARG(1)), &x, &y, &w, &h, &visible);

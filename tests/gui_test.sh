@@ -143,6 +143,16 @@ drive size 0 550 232  size 1 550 232  below 0 1
 "$DRIVE" click 0 536 14 0 >/dev/null; wait "$DRIVE_PID" 2>/dev/null; DRIVE_PID=
 ok "size saved" setting "scale_percent=200"
 
+echo "--- a size too large for the stack: the playlist moves beside the main window"
+# First run, so all three windows are stacked. At 300% the stack is 1392
+# pixels tall, more than a 1080-line screen has.
+export XDG_CONFIG_HOME="$WORK/config-large"
+INI="$XDG_CONFIG_HOME/amplitude/amplitude.ini"
+start --scale 1
+drive rclick 0 50 50 500 300  menu 30 152  popup yes  menu 30 117  wait 800     # Size... > 300%
+drive size 0 825 348  onscreen 0  onscreen 1  onscreen 2
+"$DRIVE" click 0 804 21 0 >/dev/null; wait "$DRIVE_PID" 2>/dev/null; DRIVE_PID=
+
 echo "--- a file that cannot be played is passed over"
 # Fresh settings; three files of which the middle one is recognised as Ogg
 # Vorbis but is broken. Playback must reach the third and end there.
@@ -230,9 +240,21 @@ start --scale 1 "$WORK/station.pls"
 sleep 1.5
 drive hidden 5  key 0 l 4  size 5 275 76  key 5 Escape 0  hidden 5
 quit
-kill "$SERVER_PID" 2>/dev/null
 ok "the station's address is in the playlist" grep -qx "http://127.0.0.1:$STREAM_PORT/radio" "$M3U"
 ok "the player reported no errors" sh -c "! grep -q '^amplitude:' '$WORK/stderr'"
+
+echo "--- a stream that cannot be opened is passed over"
+# Like the broken file further up, but the failure only shows a moment after
+# the list has moved on to it.
+export XDG_CONFIG_HOME="$WORK/config-deadstream"
+INI="$XDG_CONFIG_HOME/amplitude/amplitude.ini"
+mkdir -p "$XDG_CONFIG_HOME/amplitude"
+printf 'volume=0\n' > "$INI"
+start --scale 1 "$WORK/skip/1 first.wav" "http://127.0.0.1:$STREAM_PORT/nothing-here" "$WORK/skip/3 third.wav"
+sleep 4
+quit
+kill "$SERVER_PID" 2>/dev/null
+ok "playback moved past the dead address to the last track" setting "track=2"
 
 echo "--- audio CD: an image of a disc given at start"
 # A CUE sheet with a raw file of silence stands in for a disc in a drive:

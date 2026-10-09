@@ -35,7 +35,9 @@
 #define STREAM_LOW_BYTES   4096
 #define STREAM_DEFAULT_PREBUFFER (32 * 1024)    /* when the station does not state its bitrate */
 #define STREAM_HEAD        64       /* enough of the start to tell the formats apart */
-#define STREAM_INIT_WAIT_MS 3000    /* longest wait for the start of a file while its format is read */
+#define STREAM_INIT_WAIT_MS 3000
+#define STREAM_RATE_FIRST_S 8       /* when the bitrate of a stream that states none is measured, */
+#define STREAM_RATE_AGAIN_S 60      /* and measured again */    /* longest wait for the start of a file while its format is read */
 #define GAIN_UNITY   256        /* balance gains are 8.8 fixed point */
 #define EQ_Q         1.2f       /* width of each equaliser band */
 #define EQ_FLAT_DB   0.05f      /* a band set closer to 0 dB than this is skipped */
@@ -59,6 +61,7 @@ typedef struct {
     int buffering;          /* ran dry: silence until the buffer has refilled */
     int waiting;            /* reads may wait for data (while the decoder is being set up) */
     int refused;            /* not what it claimed to be: reads yield nothing */
+    int measured_kbps, measured_twice;  /* the bitrate of a stream that does not state one */
     int own_codec;          /* decoded by one of ours (see stream_kind), which may know titles */
     unsigned char head[STREAM_HEAD];    /* the first bytes, read ahead to see what it is */
     size_t head_len, head_pos;
@@ -606,6 +609,7 @@ static void close_slot(Slot *slot)
         stream_close(slot->stream);
     slot->stream = NULL;
     slot->loaded = slot->pending = slot->buffering = slot->own_codec = 0;
+    slot->measured_kbps = slot->measured_twice = 0;
     slot->head_len = slot->head_pos = 0;
     slot->length = 0;
 }
@@ -725,7 +729,25 @@ const char *audio_stream_name(void)
 
 int audio_stream_bitrate(void)
 {
-    return slots[current].stream && !slots[current].pending ? stream_bitrate(slots[current].stream) : 0;
+    Slot *slot = &slots[current];
+    double seconds;
+    int stated;
+
+    if (!slot->stream || slot->pending)
+        return 0;
+    stated = stream_bitrate(slot->stream);
+    if (stated || !slot->loaded)
+        return stated;
+    /* Not stated (Ogg stations seldom do): what has been taken from the
+     * stream, over the time it has played for. Worked out twice, early and
+     * again when the figure has settled, and then left alone. */
+    seconds = audio_position();
+    if ((seconds >= STREAM_RATE_FIRST_S && !slot->measured_kbps) ||
+        (seconds >= STREAM_RATE_AGAIN_S && !slot->measured_twice)) {
+        slot->measured_twice = slot->measured_kbps != 0;
+        slot->measured_kbps = (int)((double)stream_consumed(slot->stream) * 8.0 / seconds / 1000.0 + 0.5);
+    }
+    return slot->measured_kbps;
 }
 
 int audio_queue_next(const char *path)

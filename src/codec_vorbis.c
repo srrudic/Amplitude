@@ -85,6 +85,7 @@ int codec_open_vorbis(const char *path, Codec *codec)
  * stream the decoder is closed and opened afresh. */
 
 #define STREAM_BUFFER   (128 * 1024)    /* several times the largest headers */
+#define STREAM_STEP     4096
 #define OGG_HEADER      27
 #define OGG_BEGINS      0x02            /* header flag: first page of a logical stream */
 
@@ -120,7 +121,12 @@ static size_t stream_fill(VorbisStream *v)
         v->data = v->buffer;
         used = 0;
     }
-    got = v->feed(v->feed_user, v->data + v->have, STREAM_BUFFER - used - v->have);
+    /* A little at a time: what is taken here is no longer in the stream's
+     * own buffer, by which the player judges how much is in hand. */
+    got = STREAM_BUFFER - used - v->have;
+    if (got > STREAM_STEP)
+        got = STREAM_STEP;
+    got = v->feed(v->feed_user, v->data + v->have, got);
     v->have += got;
     return got;
 }

@@ -227,6 +227,7 @@ static void check_decoded(const char *path, const char *name, int play_ms)
     CHECK_INT(audio_state(), AUDIO_PLAYING);
     CHECK_STR(audio_stream_name(), name);
     CHECK(audio_sample_rate() > 0);
+    CHECK(strstr(path, "ogg") || strstr(path, "opus") ? audio_stream_bitrate() == 0 : 1);   /* none stated; too early to tell */
     plat_sleep_ms(play_ms);
     printf("  %s: playing after %d ms, %d Hz, position %.2f s\n", path, waited, audio_sample_rate(), audio_position());
     CHECK(audio_position() > play_ms / 1000.0 * 0.6);

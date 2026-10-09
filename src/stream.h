@@ -24,6 +24,8 @@ void    stream_close(Stream *stream);
  * still be read. */
 int     stream_state(const Stream *stream);
 size_t  stream_buffered(const Stream *stream);
+/* Bytes of audio read out of the buffer so far. */
+size_t  stream_consumed(const Stream *stream);
 /* Copies up to `size` bytes of audio data out of the buffer; never waits. */
 size_t  stream_read(Stream *stream, void *out, size_t size);
 /* The same, but waits up to timeout_ms for all of it while the stream is

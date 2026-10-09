@@ -34,7 +34,9 @@ int    audio_buffering(void);       /* connecting, or run dry and refilling */
 /* What a station says it is playing, when that has changed (UTF-8). */
 int    audio_stream_title(char *out, size_t size);
 const char *audio_stream_name(void);    /* the station's name, or "" */
-int    audio_stream_bitrate(void);      /* kbit/s as stated by the station, or 0 */
+/* kbit/s: as stated by the station; if it states none, as measured once
+ * some seconds have been played; 0 until then. */
+int    audio_stream_bitrate(void);
 
 /* Gapless playback: prepares `path` to start the instant the current track
  * ends (NULL cancels). Returns 1 if it was queued, 0 if not, and -1 if the

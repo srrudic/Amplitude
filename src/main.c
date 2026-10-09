@@ -74,6 +74,8 @@ static char config_dir[1024];
 static int track_index;
 static char title[640] = "AMPLITUDE - NO FILE LOADED";
 static int track_loaded, track_kbps;
+static int track_chosen;            /* the track was picked by the user, not reached by Next or at a track's end */
+static int stream_failures;         /* streams in a row that could not be opened */
 static float volume = 0.8f;
 static float balance;
 static uint32_t volume_readout_until;   /* ticks until which the title display shows the volume */
@@ -553,6 +555,7 @@ static void play_track(int index)
 {
     if (load_track(index))
         audio_play();
+    track_chosen = 1;       /* asked for, as opposed to arrived at (see play_next) */
 }
 
 /* Returns the track to play after the current one, or -1 at the end. */
@@ -586,6 +589,7 @@ static int play_next(void)
             return 0;
         if (load_track(next)) {     /* a failure leaves track_index there, so the search goes on from it */
             audio_play();
+            track_chosen = 0;
             return 1;
         }
     }
@@ -1138,6 +1142,18 @@ static void set_scale(int percent)
         wins[i].rel_y = to_real(rel_y[i]);
         if (was_visible[i])
             set_window_visible(i, 1);
+    }
+    /* At the new size the stack may be taller than the screen: then the
+     * playlist goes beside the main window, as it would on first opening. */
+    if (wins[WIN_PL].visible) {
+        AppWindow *pl = &wins[WIN_PL];
+        int x = pl->x, y = pl->y;
+
+        dock_beside_if_too_tall(pl);
+        if (pl->x != x || pl->y != y) {
+            plat_window_set_pos(pl->plat, pl->x, pl->y);
+            lift_stack();
+        }
     }
 }
 
@@ -2449,8 +2465,15 @@ static void stream_news(void)
     if (audio_take_failed() && track) {
         track_loaded = 0;
         snprintf(title, sizeof title, "CANNOT PLAY: %s", track->title);
+        /* Like a file that cannot be played: passed over when the list
+         * came to it by itself, left standing when it was asked for. A
+         * list of nothing but dead stations must not go round for ever. */
+        if (!track_chosen && ++stream_failures < playlist_count() && !play_next())
+            audio_stop();
         return;
     }
+    if (track_loaded && !audio_buffering())
+        stream_failures = 0;        /* something plays */
     if (!track_loaded || !audio_is_stream() || audio_buffering())
         return;
     name = audio_stream_name();
