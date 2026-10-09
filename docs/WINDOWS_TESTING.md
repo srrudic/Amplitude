@@ -36,7 +36,7 @@ Windows goes, **only compiled**:
 What to do, in this order:
 
 1. Build both executables (section 3.1) and record their sizes. The About
-   window must say "Version 0.2.0".
+   window must say "Version 0.2.1".
 2. S1, S2 and S5 again, as a check that the basics survived. S5 matters:
    the new code loads its libraries (wsock32, wininet, wnaspi32) only when
    needed, so the list of imported DLLs must still be the same six.
