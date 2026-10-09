@@ -738,6 +738,8 @@ int audio_stream_bitrate(void)
     stated = stream_bitrate(slot->stream);
     if (stated || !slot->loaded)
         return stated;
+    if (slot->measured_twice)
+        return slot->measured_kbps;
     /* Not stated (Ogg stations seldom do): what has been taken from the
      * stream, over the time it has played for. Worked out twice, early and
      * again when the figure has settled, and then left alone. */

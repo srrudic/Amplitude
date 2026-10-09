@@ -149,7 +149,7 @@ $(foreach dir,$(LINUX_DIR) $(WIN_DIR) $(WIN64_DIR),$(dir)/ui_about.o $(dir)/stre
 
 # Plain "make" builds for the machine it runs on; "make all" builds every
 # release file.
-.PHONY: all linux windows windows32 windows64 installer deb rpm dist clean test test-gui fonts website
+.PHONY: all linux windows windows32 windows64 installer deb rpm dist clean test test-gui fonts website soak
 .DEFAULT_GOAL := linux
 all: linux deb rpm windows installer
 linux: $(LINUX_DIR)/amplitude
@@ -288,6 +288,12 @@ $(TEST_DIR)/mkwav: tests/mkwav.c tests/test.h
 
 test-gui: linux $(TEST_DIR)/drive $(TEST_DIR)/mkwav
 	tests/gui_test.sh $(LINUX_DIR)/amplitude $(TEST_DIR)/drive $(TEST_DIR)/mkwav
+
+# A long run under a script that keeps the player busy, watching for leaks
+# of memory, threads and file handles. See tests/soak.sh.
+SOAK_MINUTES ?= 30
+soak: linux $(TEST_DIR)/drive $(TEST_DIR)/mkwav
+	tests/soak.sh $(LINUX_DIR)/amplitude $(TEST_DIR)/drive $(TEST_DIR)/mkwav $(SOAK_MINUTES)
 
 # --- Generated sources ----------------------------------------------------------
 FONT_DIR := third_party/fonts

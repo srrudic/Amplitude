@@ -430,7 +430,7 @@ static int ask_musicbrainz(const CdToc *toc, CdNames *out)
     len = snprintf(url, sizeof url, MUSICBRAINZ "%s?fmt=json&inc=recordings+artist-credits&toc=%d+%d+%ld", id,
                    toc->track[0].number, toc->track[last].number,
                    toc->track[last].start + toc->track[last].sectors + LEAD_IN);
-    for (i = 0; i <= last; i++)
+    for (i = 0; i <= last && len < (int)sizeof url - 16; i++)
         len += snprintf(url + len, sizeof url - (size_t)len, "+%ld", toc->track[i].start + LEAD_IN);
     answer = stream_fetch(url, ANSWER_MAX, &size);
     ok = answer && cd_names_parse_musicbrainz(answer, id, toc, out);
@@ -450,8 +450,10 @@ static int ask_gnudb(const CdToc *toc, CdNames *out)
     if (!GNUDB_CONTACT[0])
         return 0;
     len = snprintf(url, sizeof url, GNUDB "?cmd=cddb+query+%08lx+%d", cd_names_cddb_id(toc), toc->count);
-    for (i = 0; i < toc->count; i++)
+    for (i = 0; i < toc->count && len < (int)sizeof url - 16; i++)
         len += snprintf(url + len, sizeof url - (size_t)len, "+%ld", toc->track[i].start + LEAD_IN);
+    if (len >= (int)sizeof url - 96)
+        return 0;
     snprintf(url + len, sizeof url - (size_t)len, "+%ld%s", (last->start + last->sectors + LEAD_IN) / CD_SECTORS_PER_S,
              hello);
     answer = stream_fetch(url, ANSWER_MAX, &size);

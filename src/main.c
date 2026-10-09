@@ -2481,11 +2481,14 @@ static void stream_news(void)
         playlist_set_title(track_index, name);      /* in place of the bare address */
         show_title();
     }
-    if (audio_stream_bitrate())
-        track_kbps = audio_stream_bitrate();
-    /* The song changes every few minutes, and asking can mean waiting for
-     * the audio thread: twice a second is plenty. */
+    /* The song changes every few minutes, and asking (like measuring the
+     * bitrate of a station that states none) can mean waiting for the
+     * audio thread: twice a second is plenty. */
     if (plat_ticks_ms() - title_asked >= STREAM_TITLE_MS) {
+        int kbps = audio_stream_bitrate();
+
+        if (kbps)
+            track_kbps = kbps;
         title_asked = plat_ticks_ms();
         if (audio_stream_title(stream_song, sizeof stream_song))
             show_title();
