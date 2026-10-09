@@ -1074,3 +1074,9 @@ would be looked for in the current directory too, which is the folder of
 the file the player was started with. The tests that show the libraries
 are still found: T0a (a plain stream), T4 (a secure one), H6 and H7 (the
 overlay), and C11 on Windows 98. S5 as always.
+
+Also not yet run: when nothing is loaded any more (the playlist emptied
+with "New list" while a track's title was in the overlay), the overlay's
+title is now cleared and the change applied, where before it was cleared
+without the call that makes it show. `Get-AmpOverlay` after that should
+list no title for the player.

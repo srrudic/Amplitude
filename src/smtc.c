@@ -281,8 +281,9 @@ static void show_title(void)
             }
             music->v->Release(music);
         }
-        updater->v->Update(updater);
     }
+    /* Nothing set or cleared above shows until this is called. */
+    updater->v->Update(updater);
     updater->v->Release(updater);
 }
 
