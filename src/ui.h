@@ -90,10 +90,16 @@ enum {
 enum { VIS_SPECTRUM, VIS_SCOPE, VIS_OFF, VIS_MODES };
 
 #define UI_BLINK_MS 500     /* half period of the paused clock and the text cursor */
-#define UI_MARQUEE_MS 40    /* per pixel that a title too long for the display scrolls */
+#define UI_MARQUEE_MS 40    /* per logical pixel that a title too long for the display scrolls */
 
+/* The title scrolls by real pixels, so that it moves evenly at every
+ * magnification: the same number of them in every frame, at the speed of
+ * one logical pixel per UI_MARQUEE_MS. That fixes how long a frame must be,
+ * which is what this returns, in microseconds: 40 ms at 100%, 26.7 ms at
+ * 150%, never less than 20. The main loop draws on that beat. */
+int  ui_marquee_frame_us(int scale);
 /* Was the title scrolling when the main window was last drawn? Then the
- * window has to be drawn again every UI_MARQUEE_MS, playing or not. */
+ * window has to be drawn on that beat, playing or not. */
 int  ui_title_scrolls(void);
 
 /* Bottom left corner of the cog button, where its menu opens. */

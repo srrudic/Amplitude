@@ -18,11 +18,11 @@
 #define BASE_SCALE      120     /* percent; multiplied by the desktop's scaling */
 #define SCALE_MIN       100     /* percent */
 #define SCALE_MAX       400
-/* 25 frames a second while something moves on screen. The same as the pace
- * of the scrolling title, and frames are timed to fall on its steps (see
- * the end of main()): a frame rate of its own would show some steps late
- * and the title would stutter. */
-#define FRAME_MS        UI_MARQUEE_MS
+/* 25 frames a second while something moves on screen. When that includes a
+ * scrolling title, frames are instead timed to fall on its steps (see the
+ * end of main()): a frame rate of its own would show some steps late and
+ * the title would stutter. */
+#define FRAME_MS        40
 #define IDLE_MS         250     /* otherwise */
 #define FIRST_FRAME_MS  500     /* longest wait for the windows to come on screen at start-up */
 #define FIRST_FRAME_POLL_MS 10
@@ -2651,13 +2651,17 @@ int main(int argc, char **argv)
             update_queue();
 
         render();
-        /* Until the next step of the frame clock, which runs by the wall
+        /* Until the next beat of the frame clock, which runs by the wall
          * clock and not from the end of this frame, so that every frame
-         * shows the title exactly one step further. */
-        if (audio_state() == AUDIO_PLAYING || pressed || menu_win || ui_title_scrolls())
-            plat_wait(FRAME_MS - (int)(plat_ticks_ms() % FRAME_MS));
-        else
+         * shows a scrolling title exactly one step further. */
+        if (audio_state() == AUDIO_PLAYING || pressed || menu_win || ui_title_scrolls()) {
+            uint64_t beat = ui_title_scrolls() ? (uint64_t)ui_marquee_frame_us(scale) : FRAME_MS * 1000;
+            uint64_t into = (uint64_t)plat_ticks_ms() * 1000 % beat;
+
+            plat_wait((int)((beat - into + 999) / 1000));
+        } else {
             plat_wait(IDLE_MS);
+        }
     }
 
     collect_config();

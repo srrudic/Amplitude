@@ -22,6 +22,8 @@ typedef struct {
     int w, h;                   /* buffer size in real pixels */
     int scale;                  /* percent */
     int ox, oy;                 /* logical offset added to every coordinate */
+    int shift_x;                /* real pixels added to where gfx_utext() and gfx_blit() draw,
+                                 * for moving text by less than a logical pixel */
     int clip_x0, clip_y0, clip_x1, clip_y1;     /* real pixels, x1/y1 exclusive */
 } Canvas;
 
@@ -86,8 +88,10 @@ void gfx_utext(Canvas *c, const GfxFont *font, int x, int y, const char *text, u
  * for a d-stroke) and plain forms of typographic quotes and dashes; other
  * characters are returned unchanged. */
 unsigned long gfx_unaccent(unsigned long cp);
-/* Logical width that text takes at a given magnification. */
+/* Logical width that text takes at a given magnification, and the exact
+ * number of real pixels. */
 int  gfx_utext_width(int scale, const GfxFont *font, const char *text);
+int  gfx_utext_real_width(int scale, const GfxFont *font, const char *text);
 
 /* Copies a w*h region of src at (sx, sy) to (dx, dy), magnified to the
  * canvas scale: pixels are replicated at whole factors and averaged by area

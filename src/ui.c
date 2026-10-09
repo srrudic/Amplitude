@@ -161,6 +161,21 @@ static int skin_font_covers(const Canvas *c, const Skin *skin, const char *text)
     return 1;
 }
 
+#define MARQUEE_MIN_FRAME_US 20000   /* no more than 50 frames a second */
+
+/* How many real pixels the title moves in each frame. */
+static int marquee_step(int scale)
+{
+    int pixel_us = UI_MARQUEE_MS * 1000 * 100 / scale;      /* the time one real pixel takes */
+
+    return (MARQUEE_MIN_FRAME_US + pixel_us - 1) / pixel_us;
+}
+
+int ui_marquee_frame_us(int scale)
+{
+    return marquee_step(scale) * (UI_MARQUEE_MS * 1000 * 100 / scale);
+}
+
 static void draw_title(Canvas *c, const Skin *skin, const UiModel *m)
 {
     static const char separator[] = "  ***  ";
@@ -172,26 +187,36 @@ static void draw_title(Canvas *c, const Skin *skin, const UiModel *m)
     int y = !unicode ? r->y : skin->builtin[SKIN_MAIN] ? r->y - 2 : r->y - 1;
     int width = unicode ? gfx_utext_width(c->scale, font, m->title)
                         : (int)strlen(m->title) * skin->text_w;
-    int gap = unicode ? gfx_utext_width(c->scale, font, separator)
-                      : (int)(sizeof separator - 1) * skin->text_w;
-    int x = r->x, loop = width + gap, scrolling = width > r->w;
+    /* The same in real pixels, in which the scrolling is reckoned. */
+    int real_width = unicode ? gfx_utext_real_width(c->scale, font, m->title)
+                             : GFX_SCALED((int)strlen(m->title) * skin->text_w, c->scale);
+    int real_gap = unicode ? gfx_utext_real_width(c->scale, font, separator)
+                           : GFX_SCALED((int)(sizeof separator - 1) * skin->text_w, c->scale);
+    int loop = real_width + real_gap, scrolling = width > r->w, shift = 0;
 
     gfx_set_clip(c, r->x, y, r->w, unicode ? font->h : skin->text_h);
     /* Marquee: text that does not fit chases its own tail around a loop. */
     title_scrolls = scrolling;
-    if (scrolling)
-        x -= (int)((m->ticks / UI_MARQUEE_MS) % (uint32_t)loop);
-    for (pass = 0; pass <= scrolling; pass++, x += loop) {
+    if (scrolling) {
+        uint64_t frame = (uint64_t)m->ticks * 1000 / (uint64_t)ui_marquee_frame_us(c->scale);
+
+        shift = -(int)(frame * (uint64_t)marquee_step(c->scale) % (uint64_t)loop);
+    }
+    for (pass = 0; pass <= scrolling; pass++, shift += loop) {
         const char *tail = scrolling && !pass ? separator : "";
 
-        if (unicode) {
-            gfx_utext(c, font, x, y, m->title, skin->text_color);
-            gfx_utext(c, font, x + width, y, tail, skin->text_color);
-        } else {
-            draw_text(c, skin, x, y, m->title);
-            draw_text(c, skin, x + width, y, tail);
-        }
+        c->shift_x = shift;
+        if (unicode)
+            gfx_utext(c, font, r->x, y, m->title, skin->text_color);
+        else
+            draw_text(c, skin, r->x, y, m->title);
+        c->shift_x = shift + real_width;
+        if (unicode)
+            gfx_utext(c, font, r->x, y, tail, skin->text_color);
+        else
+            draw_text(c, skin, r->x, y, tail);
     }
+    c->shift_x = 0;
     gfx_reset_clip(c);
 }
 

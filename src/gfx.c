@@ -87,7 +87,7 @@ void gfx_init(Canvas *c, uint32_t *px, int w, int h, int scale)
 {
     c->px = px;
     c->scale = scale;
-    c->ox = c->oy = 0;
+    c->ox = c->oy = c->shift_x = 0;
     c->w = GFX_SCALED(w, scale);
     c->h = GFX_SCALED(h, scale);
     gfx_reset_clip(c);
@@ -440,7 +440,7 @@ void gfx_utext(Canvas *c, const GfxFont *font, int x, int y, const char *text, u
 {
     int target = GFX_SCALED(font->h, c->scale), k;
     const GfxFont *actual = pick_font(target, 0, 0, &k);
-    int rx = real(c, c->ox + x);
+    int rx = real(c, c->ox + x) + c->shift_x;
     int ry = real(c, c->oy + y) + (target - actual->h * k) / 2;    /* centred in the logical row */
 
     while (*text) {
@@ -449,7 +449,7 @@ void gfx_utext(Canvas *c, const GfxFont *font, int x, int y, const char *text, u
     }
 }
 
-int gfx_utext_width(int scale, const GfxFont *font, const char *text)
+int gfx_utext_real_width(int scale, const GfxFont *font, const char *text)
 {
     int k, count = 0;
     const GfxFont *actual = pick_font(GFX_SCALED(font->h, scale), 0, 0, &k);
@@ -458,7 +458,12 @@ int gfx_utext_width(int scale, const GfxFont *font, const char *text)
         utf8_next(&text);
         count++;
     }
-    return (count * actual->w * k * 100 + scale - 1) / scale;
+    return count * actual->w * k;
+}
+
+int gfx_utext_width(int scale, const GfxFont *font, const char *text)
+{
+    return (gfx_utext_real_width(scale, font, text) * 100 + scale - 1) / scale;
 }
 
 void gfx_text(Canvas *c, int x, int y, const char *text, uint32_t color)
@@ -541,6 +546,7 @@ void gfx_blit(Canvas *c, const Bitmap *src, int sx, int sy, int w, int h, int dx
     y0 = real(c, c->oy + dy);
     rw = real(c, c->ox + dx + w) - x0;
     rh = real(c, c->oy + dy + h) - y0;
+    x0 += c->shift_x;
     x1 = x0 + rw < c->clip_x1 ? x0 + rw : c->clip_x1;
     y1 = y0 + rh < c->clip_y1 ? y0 + rh : c->clip_y1;
 
