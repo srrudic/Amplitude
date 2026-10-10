@@ -27,6 +27,8 @@
 #define AHEAD_BYTES     ((size_t)AHEAD_SECTORS * CD_SECTOR)
 #define FRAME_BYTES     4
 #define START_SECTORS   150     /* in hand before sound is given out: two seconds (see `starved`) */
+#define QUICK_SPEED     3       /* times playing speed: a drive that has got up to speed reads at least so fast */
+#define QUICK_CHUNKS    8       /* so many reads in a row at that speed, and it has */
 #define FIRST_WAIT_MS   8000    /* longest wait for a drive to deliver its first sound */
 #define READ_RETRIES    3
 
@@ -44,10 +46,13 @@ typedef struct {
     int generation;             /* goes up at every seek, so a read under way is dropped */
     /* No sound is given out until a fair amount is in hand: at the start,
      * after a seek, and whenever the buffer has run dry. A drive woken from
-     * standstill delivers a first second at once and then nothing while it
-     * gets up to speed; playing that second only to fall silent is worse
-     * than starting a little later. */
-    int starved;
+     * standstill reads slowly for a few seconds and then not at all while
+     * it gets up to speed; playing those seconds only to fall silent is
+     * worse than starting a little later. So an amount in hand is not
+     * enough by itself: the drive must also be seen to read quickly (the
+     * count of reads in a row that were quick), or else the buffer be full,
+     * which is the most that can be asked of a drive that is simply slow. */
+    int starved, quick;
     volatile int quit, released;
 } CdTrackState;
 
@@ -105,7 +110,8 @@ static void reader(void *arg)
     unsigned char *chunk = malloc(CHUNK_SECTORS * CD_SECTOR);
 
     while (chunk && !t->quit) {
-        int generation, count, tries, ok = 0;
+        int generation, count, tries, ok = 0, quick;
+        uint32_t started;
         size_t size, i;
         long sector;
 
@@ -120,8 +126,11 @@ static void reader(void *arg)
             plat_sleep_ms(20);      /* enough in hand, the track is all read, or it is not our turn */
             continue;
         }
+        started = plat_ticks_ms();
         for (tries = 0; tries < READ_RETRIES && !ok && !t->quit; tries++)
             ok = cd_read(t->cd, t->first + sector, count, chunk);
+        /* (Sound lasting count / 75 s, read in a third of that or less?) */
+        quick = (plat_ticks_ms() - started) * QUICK_SPEED * CD_SECTORS_PER_S <= (uint32_t)count * 1000;
         size = (size_t)count * CD_SECTOR;
         if (!ok)
             memset(chunk, 0, size);     /* unreadable: silence in its place */
@@ -138,6 +147,7 @@ static void reader(void *arg)
                 i += n;
             }
             t->next = sector + count;
+            t->quick = quick ? t->quick + 1 : 0;
         }
         unlock(t);
     }
@@ -153,7 +163,9 @@ static void reader(void *arg)
 /* Is enough in hand to give sound out (again)? Call with the lock held. */
 static int enough(const CdTrackState *t)
 {
-    return t->fill >= (size_t)START_SECTORS * CD_SECTOR || t->next >= t->sectors;
+    if (t->next >= t->sectors || AHEAD_BYTES - t->fill < (size_t)CHUNK_SECTORS * CD_SECTOR)
+        return 1;       /* all there is, or all there is room for */
+    return t->fill >= (size_t)START_SECTORS * CD_SECTOR && t->quick >= QUICK_CHUNKS;
 }
 
 /* Waits until the thread has enough to start playing on. Not
@@ -237,6 +249,7 @@ static int cd_track_seek(void *state, uint64_t frame)
         t->next = (long)(byte / CD_SECTOR);
         t->at = t->fill = 0;
         t->starved = 1;
+        t->quick = 0;
     }
     t->position = byte;
     unlock(t);

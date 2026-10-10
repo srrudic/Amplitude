@@ -42,6 +42,8 @@ void cd_close(Cd *cd);
 /* For the tests: how often reading from an image went on somewhere other
  * than where the read before it ended, whichever handle did the reading. */
 extern long cd_image_jumps;
+/* And how long each read from an image is to take, to stand in for a drive. */
+extern int cd_image_delay_ms;
 
 /* Names of the album and its songs. */
 typedef struct {

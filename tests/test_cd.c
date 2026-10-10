@@ -11,6 +11,8 @@
 #include "codec.h"
 #include "test.h"
 
+#include <time.h>
+
 /* The disc: track 1 is 3 seconds, track 2 is 2 seconds, track 3 is data,
  * track 4 is 1 second. Every sample says where on the disc it is. */
 #define SECTORS_1   (3 * CD_SECTORS_PER_S)
@@ -249,6 +251,35 @@ static void test_turns(void)
     heard.close(heard.state);
     next.close(next.state);
     usleep(100 * 1000);
+
+    /* A drive getting up to speed reads slowly at first and then stops
+     * for a while: a track is not started on a slow trickle, however much
+     * of it there is, but only once the buffer is full. A fifth of a
+     * second of sound per read: 100 ms each is twice playing speed, and
+     * filling four seconds takes two. */
+    {
+        struct timespec from, to;
+        double took;
+
+        cd_image_delay_ms = 100;
+        clock_gettime(CLOCK_MONOTONIC, &from);
+        CHECK(codec_open(paths[0], &heard));
+        clock_gettime(CLOCK_MONOTONIC, &to);
+        took = (double)(to.tv_sec - from.tv_sec) + (double)(to.tv_nsec - from.tv_nsec) / 1e9;
+        CHECK(took > 1.7 && took < 4);
+        heard.close(heard.state);
+        usleep(300 * 1000);
+        /* Read at ten times playing speed, it starts at two seconds in hand. */
+        cd_image_delay_ms = 20;
+        clock_gettime(CLOCK_MONOTONIC, &from);
+        CHECK(codec_open(paths[0], &heard));
+        clock_gettime(CLOCK_MONOTONIC, &to);
+        took = (double)(to.tv_sec - from.tv_sec) + (double)(to.tv_nsec - from.tv_nsec) / 1e9;
+        CHECK(took < 1.0);
+        heard.close(heard.state);
+        cd_image_delay_ms = 0;
+        usleep(100 * 1000);
+    }
 }
 
 static void test_disc_names(void)

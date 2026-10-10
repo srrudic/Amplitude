@@ -160,6 +160,7 @@ const CdToc *cd_toc(const Cd *cd)
 }
 
 long cd_image_jumps;
+int cd_image_delay_ms;
 
 int cd_read(Cd *cd, long sector, int count, void *out)
 {
@@ -168,6 +169,8 @@ int cd_read(Cd *cd, long sector, int count, void *out)
     if (!cd->drive && sector != expected)
         cd_image_jumps++;       /* a drive would have had to move its head */
     expected = sector + count;
+    if (!cd->drive && cd_image_delay_ms)
+        plat_sleep_ms(cd_image_delay_ms);
     if (cd->drive)
         return plat_cd_read(cd->drive, sector, count, out);
     return fseek(cd->image, sector * CD_SECTOR, SEEK_SET) == 0 &&
