@@ -25,7 +25,7 @@
 # Generated files (src/font_data.c, src/icon_data.c, the icons) are kept in
 # the tree; tools/genfont.py and tools/genlogo.py recreate them.
 
-VERSION        := 0.2.1
+VERSION        := 0.2.2
 RELEASE_DATE   := 2026-10-04
 DEB_MAINTAINER ?= Srđan Rudić <blaster7th@gmail.com>
 

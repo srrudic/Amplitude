@@ -1,6 +1,6 @@
 # The .rpm package, built by "make rpm":
 #
-#     rpmbuild -bb --define "version 0.2.1" --define "srcroot <project>" \
+#     rpmbuild -bb --define "version 0.2.2" --define "srcroot <project>" \
 #              --define "_topdir <project>/build/rpm" packaging/amplitude.spec
 #
 # Like the .deb, it packs the player that "make" has already built rather
