@@ -32,6 +32,7 @@ struct PlatWindow {
     int rw, rh;             /* window size in real pixels */
     int x, y;               /* last requested or reported position */
     int mapped, owned, popup;
+    int minimized;              /* taken off the screen by the window manager, not by us */
     XIC input;              /* text input context, NULL if unavailable */
     PlatWindow *next;
 };
@@ -64,7 +65,7 @@ static const struct { KeySym sym; int key; } media_syms[] = {      /* from XF86k
     { 0x1008FF17, PK_MEDIA_NEXT },          /* XF86AudioNext */
 };
 #define MEDIA_SYMS ((int)(sizeof media_syms / sizeof media_syms[0]))
-static Atom wm_protocols, wm_delete_window, net_wm_state, net_wm_skip_taskbar;
+static Atom wm_protocols, wm_delete_window, wm_state, net_wm_state, net_wm_skip_taskbar;
 static Atom xdnd_aware, xdnd_enter, xdnd_position, xdnd_status, xdnd_drop, xdnd_finished;
 static Atom xdnd_selection, xdnd_action_copy, xdnd_type_list, uri_list;
 static Atom instance_selection, instance_command;
@@ -91,6 +92,7 @@ int plat_init(void)
     }
     input_method = XOpenIM(dpy, NULL, NULL, NULL);
     wm_protocols = XInternAtom(dpy, "WM_PROTOCOLS", False);
+    wm_state = XInternAtom(dpy, "WM_STATE", False);
     wm_delete_window = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
     net_wm_state = XInternAtom(dpy, "_NET_WM_STATE", False);
     net_wm_skip_taskbar = XInternAtom(dpy, "_NET_WM_STATE_SKIP_TASKBAR", False);
@@ -416,6 +418,11 @@ void plat_window_set_pos(PlatWindow *win, int sx, int sy)
     win->y = sy;
     if (win->mapped)
         XMoveWindow(dpy, win->xwin, sx, sy);
+}
+
+int plat_window_minimized(PlatWindow *win)
+{
+    return win->minimized;
 }
 
 void plat_window_minimize(PlatWindow *win)
@@ -811,6 +818,27 @@ int plat_poll_event(PlatEvent *ev)
         case PropertyNotify:
             if (xev.xproperty.atom == instance_command && xev.xproperty.state == PropertyNewValue)
                 handle_instance_command(ev->win);
+            /* Minimised: most window managers unmap the window (below); the
+             * others say so in WM_STATE. */
+            if (xev.xproperty.atom == wm_state && xev.xproperty.state == PropertyNewValue) {
+                unsigned long count = 0;
+                Atom type;
+                int format;
+                unsigned char *state = read_property(ev->win->xwin, wm_state, False, &count, &type, &format);
+
+                if (state && count >= 1 && format == 32)
+                    ev->win->minimized = *(long *)state == IconicState;
+                if (state)
+                    XFree(state);
+            }
+            break;
+        case UnmapNotify:
+            if (xev.xunmap.window == ev->win->xwin && ev->win->mapped)
+                ev->win->minimized = 1;     /* not our doing: the window manager put it away */
+            break;
+        case MapNotify:
+            if (xev.xmap.window == ev->win->xwin)
+                ev->win->minimized = 0;
             break;
         case Expose:
             ev->win->stale = 1;     /* the server discarded what was there */

@@ -24,6 +24,7 @@
  * the title would stutter. */
 #define FRAME_MS        40
 #define IDLE_MS         250     /* otherwise */
+#define UNSEEN_MS       100     /* while playing with the player minimised: nothing to draw, only tracks to change */
 #define FIRST_FRAME_MS  500     /* longest wait for the windows to come on screen at start-up */
 #define FIRST_FRAME_POLL_MS 10
 #define SEEK_STEP       5.0     /* seconds, arrow keys */
@@ -2304,8 +2305,10 @@ static void render(void)
                       model.position, model.length);
     /* The main window changes a little in most frames (the title moves,
      * the spectrum, the clock) and all over only rarely: only what changed
-     * is painted again and looked at for sending to the screen. */
-    {
+     * is painted again and looked at for sending to the screen. Minimised,
+     * nothing of it can be seen and nothing is painted; when it comes back
+     * the system asks for it to be shown again, which repaints all of it. */
+    if (!plat_window_minimized(wins[WIN_MAIN].plat)) {
         int top, bottom;
 
         if (wins[WIN_MAIN].redraw)
@@ -2664,7 +2667,11 @@ int main(int argc, char **argv)
         /* Until the next beat of the frame clock, which runs by the wall
          * clock and not from the end of this frame, so that every frame
          * shows a scrolling title exactly one step further. */
-        if (audio_state() == AUDIO_PLAYING || pressed || menu_win || ui_title_scrolls()) {
+        if (plat_window_minimized(wins[WIN_MAIN].plat)) {
+            /* Nobody is watching: no frames to keep up, just the audio
+             * engine to look in on (a track ending, a stream's news). */
+            plat_wait(audio_state() == AUDIO_PLAYING ? UNSEEN_MS : IDLE_MS);
+        } else if (audio_state() == AUDIO_PLAYING || pressed || menu_win || ui_title_scrolls()) {
             uint64_t beat = ui_title_scrolls() ? (uint64_t)ui_marquee_frame_us(scale) : FRAME_MS * 1000;
             uint64_t into = (uint64_t)plat_ticks_ms() * 1000 % beat;
 

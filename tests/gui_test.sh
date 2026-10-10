@@ -84,6 +84,8 @@ drive click 0 225 97 0  popup yes  menu 400 5  popup no           # the cog open
 # Turning to another program closes the menu: under Wayland the click there
 # is never reported to the player, only the loss of focus is.
 drive focus 0  rclick 0 50 50 500 300  popup yes  unfocus  popup no
+# Minimised, the player stops painting; it must come back whole and alive.
+drive click 0 258 7 0  hidden 0  wait 700  restore 0  size 0 275 116  rclick 0 50 50 500 300  popup yes  menu 400 5  popup no
 
 echo "--- about: a click on the logo opens it, Escape closes it"
 drive hidden 4  click 0 255 96 0  size 4 250 138  key 4 Escape 0  hidden 4

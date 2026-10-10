@@ -577,6 +577,11 @@ void plat_window_set_pos(PlatWindow *win, int sx, int sy)
     SetWindowPos(win->hwnd, NULL, sx, sy, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+int plat_window_minimized(PlatWindow *win)
+{
+    return IsIconic(win->hwnd) != 0;
+}
+
 void plat_window_minimize(PlatWindow *win)
 {
     ShowWindow(win->hwnd, SW_MINIMIZE);

@@ -17,6 +17,7 @@
  *   drag W x y dx dy         left-button drag by (dx, dy)
  *   menu x y                 click inside the open popup menu
  *   onscreen W               check that all of a window is on the screen
+ *   restore W                bring a minimised window back
  *   focus W                  give a window the keyboard focus
  *   unfocus                  take the focus away from the player
  *   drop W uri-list          drag and drop (file:// URIs separated by \r\n)
@@ -345,6 +346,13 @@ int main(int argc, char **argv)
                      visible ? "visible" : "hidden", w, h);
             check(visible && w == ARG(2) && h == ARG(3), what);
             i += 3;
+        } else if (!strcmp(cmd, "restore")) {
+            /* Brings a minimised window back, as its taskbar button would. */
+            NEED(1);
+            XMapRaised(dpy, window(ARG(1)));
+            XSync(dpy, False);
+            pause_ms(500);
+            i += 1;
         } else if (!strcmp(cmd, "onscreen")) {
             char what[96];
 

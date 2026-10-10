@@ -379,6 +379,18 @@ window to the screen and has never run. Look hard here.
   desktop: the menu closes. Before, it stayed open on top of everything.
   (Posted messages cannot show this: the menu closes when Windows tells
   the player that another program was activated.)
+- **W9** *(added later; not yet run on Windows)* Drawing was changed in
+  two ways that Windows has not seen. The main window is now repainted
+  only where it changed (title, clock, spectrum, seek bar), and only those
+  rows are compared and sent (`plat_window_present_rows`); and while the
+  main window is minimised nothing is painted at all
+  (`plat_window_minimized`, which is `IsIconic`). To check: play a track
+  with a long title for a minute and compare shots a few seconds apart,
+  looking for anything left behind or not updated (a clock digit, a piece
+  of the old title, the seek knob); press buttons and move the volume
+  while it plays. Then minimise from the taskbar for ten seconds and
+  restore: the window is complete at once and the clock has moved on.
+  `Measure-AmpCpu` minimised should read clearly less than on screen.
 - **W6** Press J (or Ctrl+J) in the main window: jump to file opens. Type
   part of a title with `Send-AmpText`; the list narrows; Enter plays it.
   Known limit: text typed here is limited to the system code page.

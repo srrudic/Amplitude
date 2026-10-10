@@ -117,6 +117,9 @@ void plat_window_present_rows(PlatWindow *win, const uint32_t *pixels, int top, 
 void plat_window_get_pos(PlatWindow *win, int *sx, int *sy);
 void plat_window_set_pos(PlatWindow *win, int sx, int sy);
 void plat_window_minimize(PlatWindow *win);
+/* Is the window minimised (by the user, the taskbar, or the call above)?
+ * Then nothing drawn into it can be seen. */
+int  plat_window_minimized(PlatWindow *win);
 /* Brings a visible window to the front and gives it the keyboard. */
 void plat_window_focus(PlatWindow *win);
 
