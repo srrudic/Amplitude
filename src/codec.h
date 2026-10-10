@@ -30,6 +30,11 @@ int codec_open_aac(const char *path, Codec *codec);     /* MP4/M4A and raw ADTS 
 int codec_open_module(const char *path, Codec *codec);  /* MOD, XM, S3M, IT */
 int codec_open_cd(const char *path, Codec *codec);      /* a track of an audio CD (see cd.h) */
 
+/* Can the drive (or CUE sheet) `device` be spared for a few seconds? It can
+ * when no track of its disc is being listened to, or that track is read as
+ * far ahead as it goes, so that it plays on meanwhile. */
+int codec_cd_ahead(const char *device);
+
 /* Decoding from a stream (an internet radio station) rather than a file.
  * The input is fetched through `feed`, which returns the bytes it could
  * supply, fewer than asked when no more are to be had for now; reading then

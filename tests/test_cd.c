@@ -11,8 +11,6 @@
 #include "codec.h"
 #include "test.h"
 
-#include <time.h>
-
 /* The disc: track 1 is 3 seconds, track 2 is 2 seconds, track 3 is data,
  * track 4 is 1 second. Every sample says where on the disc it is. */
 #define SECTORS_1   (3 * CD_SECTORS_PER_S)
@@ -196,10 +194,11 @@ static size_t text_packs(unsigned char *out, int kind, int block, const char *co
  * than what is read ahead. */
 static void test_turns(void)
 {
-    enum { TRACK_S = 6 };
+    enum { TRACK_S = 20 };
     static short sound[CD_RATE / 10 * 2];
     static char silence[CD_SECTOR * CD_SECTORS_PER_S];
     char sheet[256], paths[2][600];
+    const CdNames *names = NULL;
     Codec heard, next;
     long jumps;
     FILE *f;
@@ -210,8 +209,8 @@ static void test_turns(void)
         fwrite(silence, 1, sizeof silence, f);
     if (f)
         fclose(f);
-    snprintf(sheet, sizeof sheet, "FILE \"long.bin\" BINARY\n TRACK 01 AUDIO\n  INDEX 01 00:00:00\n"
-                                  " TRACK 02 AUDIO\n  INDEX 01 00:%02d:00\n", TRACK_S);
+    snprintf(sheet, sizeof sheet, "FILE \"long.bin\" BINARY\n TRACK 01 AUDIO\n  TITLE \"First\"\n  INDEX 01 00:00:00\n"
+                                  " TRACK 02 AUDIO\n  TITLE \"Second\"\n  INDEX 01 00:%02d:00\n", TRACK_S);
     test_write(test_path("long.cue"), sheet, strlen(sheet));
     cd_make_path(paths[0], sizeof paths[0], test_path("long.cue"), 1);
     cd_make_path(paths[1], sizeof paths[1], test_path("long.cue"), 2);
@@ -231,10 +230,11 @@ static void test_turns(void)
     /* Nor does listening change that, or a seek within what is in hand... */
     for (i = 0; i < 5; i++)
         CHECK_INT((int)heard.read(heard.state, sound, CD_RATE / 10), CD_RATE / 10);
-    CHECK(heard.seek(heard.state, CD_RATE));
+    CHECK(heard.seek(heard.state, 4 * CD_RATE));
     usleep(100 * 1000);
     CHECK_INT((int)cd_image_jumps, 1);
-    /* ...until the track has been read to its end: then the other one is. */
+    /* ...until the track has been read to its end (which it is once the
+     * fifteen seconds read ahead reach that far): then the other one is. */
     for (i = 0; i < 15; i++) {
         CHECK_INT((int)heard.read(heard.state, sound, CD_RATE / 10), CD_RATE / 10);
         usleep(30 * 1000);
@@ -252,34 +252,31 @@ static void test_turns(void)
     next.close(next.state);
     usleep(100 * 1000);
 
-    /* A drive getting up to speed reads slowly at first and then stops
-     * for a while: a track is not started on a slow trickle, however much
-     * of it there is, but only once the buffer is full. A fifth of a
-     * second of sound per read: 100 ms each is twice playing speed, and
-     * filling four seconds takes two. */
-    {
-        struct timespec from, to;
-        double took;
-
-        cd_image_delay_ms = 100;
-        clock_gettime(CLOCK_MONOTONIC, &from);
-        CHECK(codec_open(paths[0], &heard));
-        clock_gettime(CLOCK_MONOTONIC, &to);
-        took = (double)(to.tv_sec - from.tv_sec) + (double)(to.tv_nsec - from.tv_nsec) / 1e9;
-        CHECK(took > 1.7 && took < 4);
-        heard.close(heard.state);
-        usleep(300 * 1000);
-        /* Read at ten times playing speed, it starts at two seconds in hand. */
-        cd_image_delay_ms = 20;
-        clock_gettime(CLOCK_MONOTONIC, &from);
-        CHECK(codec_open(paths[0], &heard));
-        clock_gettime(CLOCK_MONOTONIC, &to);
-        took = (double)(to.tv_sec - from.tv_sec) + (double)(to.tv_nsec - from.tv_nsec) / 1e9;
-        CHECK(took < 1.0);
-        heard.close(heard.state);
-        cd_image_delay_ms = 0;
-        usleep(100 * 1000);
-    }
+    /* Asking a disc for its names can keep a drive for seconds, with
+     * nothing played meanwhile: while a track of the disc is listened to,
+     * that waits until the track is read as far ahead as it goes. A fifth
+     * of a second of sound per read, 20 ms each: ten times playing speed,
+     * so the fifteen seconds read ahead take a second and a half. */
+    cd_image_delay_ms = 20;
+    CHECK(codec_open(paths[0], &heard));
+    CHECK(!codec_cd_ahead(test_path("long.cue")));
+    CHECK(codec_cd_ahead(test_path("disc.cue")));       /* another disc: nothing of it is playing */
+    cd_names_request(test_path("long.cue"), 0);
+    usleep(500 * 1000);
+    CHECK(!codec_cd_ahead(test_path("long.cue")));
+    CHECK(cd_names_take() == NULL);
+    for (i = 0; i < 300 && !codec_cd_ahead(test_path("long.cue")); i++)
+        usleep(20 * 1000);
+    CHECK(i < 300);
+    for (i = 0; i < 100 && !(names = cd_names_take()); i++)
+        usleep(20 * 1000);
+    CHECK(names != NULL);
+    if (names)
+        CHECK_STR(names->track[1].title, "Second");
+    heard.close(heard.state);
+    cd_image_delay_ms = 0;
+    CHECK(codec_cd_ahead(test_path("long.cue")));       /* nor is it now */
+    usleep(100 * 1000);
 }
 
 static void test_disc_names(void)

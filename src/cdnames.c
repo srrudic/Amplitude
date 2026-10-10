@@ -1,6 +1,7 @@
 /* See cdnames.h. */
 #include "cdnames.h"
 
+#include "codec.h"
 #include "platform.h"
 #include "stream.h"
 #include "tags.h"
@@ -16,6 +17,7 @@
 
 #define ANSWER_MAX      (2 * 1024 * 1024)
 #define RETRY_SECONDS   60              /* before a disc that was not found is asked about again */
+#define DRIVE_WAIT_MS   30000           /* longest wait for playback to be read ahead before the disc is asked */
 #define LEAD_IN         150             /* sectors before sector 0, which disc IDs count in */
 #define MUSICBRAINZ     "https://musicbrainz.org/ws/2/discid/"
 #define GNUDB           "http://gnudb.gnudb.org/~cddb/cddb.cgi"
@@ -482,6 +484,7 @@ static void lookup(void *arg)
 {
     Cd *cd = cd_open(asked_device);
     unsigned long id = cd ? cd_names_cddb_id(cd_toc(cd)) : 0;
+    int waited;
 
     (void)arg;
     /* The same disc as last time needs no asking: its names are known, or
@@ -492,6 +495,12 @@ static void lookup(void *arg)
     if (cd && id != asked_id) {
         asked_id = id;
         asked_at = time(NULL);
+        /* A drive can be seconds about it, most of all when the disc has
+         * no names, and plays nothing meanwhile: a track of the disc that
+         * is being listened to gets its sound read well ahead first. (A
+         * drive too slow ever to get ahead is not waited for for ever.) */
+        for (waited = 0; waited < DRIVE_WAIT_MS && !codec_cd_ahead(asked_device); waited += 50)
+            plat_sleep_ms(50);
         reading = 1;
         found_any = cd_read_names(cd, &found);
         reading = 0;

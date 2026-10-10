@@ -20,7 +20,9 @@
 /* Starts finding names for the disc in `device` (a drive or a CUE sheet),
  * unless that very disc was looked up last or a lookup is under way. What
  * the disc says of itself (see cd_read_names) comes first; the internet is
- * asked only if that is nothing and `online` allows it. */
+ * asked only if that is nothing and `online` allows it. While a track of
+ * the disc is playing, the disc is not asked until that track is read well
+ * ahead (see codec_cd_ahead), since the drive plays nothing meanwhile. */
 void cd_names_request(const char *device, int online);
 /* Returns the names, once, when some have been found; otherwise NULL. They
  * stay valid until the next request. */

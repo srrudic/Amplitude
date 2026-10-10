@@ -417,7 +417,7 @@ the source is to that format.
   the NT line; on Windows 9x it sends SCSI commands through ASPI instead,
   loading `wnaspi32.dll` on first use). A track is written as a path, `cdda://<device>/<number>`,
   and from there on is a file like any other: `codec_open` hands such
-  paths to `codec_cd.c`, whose reader thread keeps four seconds read
+  paths to `codec_cd.c`, whose reader thread keeps fifteen seconds read
   ahead so that the audio thread never waits for the drive. Instead of a
   device the path may name a CUE sheet with one raw `.bin` file; `cd.c`
   reads those itself. That is a small feature in its own right, and it is
@@ -426,7 +426,10 @@ the source is to that format.
   song names on a thread of its own. First it asks the disc
   (`cd_read_names`: CD-Text, fetched from the drive with one more command
   on each platform and decoded by `cd_text_parse`; or the TITLE and
-  PERFORMER lines of an image's sheet). Failing that it works out the disc IDs from the
+  PERFORMER lines of an image's sheet). A drive can take seconds over
+  that command (6.4 s were measured on a disc without CD-Text) and reads no
+  sound meanwhile, so while a track of the disc is playing the lookup first
+  waits for it to be read fully ahead (`codec_cd_ahead`). Failing that it works out the disc IDs from the
   track positions and asks MusicBrainz (JSON, read by a few small `js_*`
   functions) and then gnudb (the old CDDB protocol over HTTP). gnudb only
   answers programs whose author has registered an e-mail address, which

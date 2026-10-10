@@ -88,6 +88,7 @@ static uint32_t volume_readout_until;   /* ticks until which the title display s
 static int volume_readout;
 static int shuffle, repeat;     /* repeat: 0 off, 1 the list, 2 the track */
 static int cd_names_on;             /* look CD track names up on the internet when the disc has none */
+static char cd_names_wanted[CD_DEVICE_MAX];     /* a disc just added, whose names are yet to be asked for */
 static int vis_mode;
 static int queued_index = -1;       /* track prepared for a gapless hand-over */
 /* The tracks played before the current one, oldest first, so that with
@@ -900,8 +901,11 @@ static int add_cd(const char *device)
     }
     cd_close(cd);
     queue_dirty = 1;
+    /* The names follow when they are found. Not asked for here but from
+     * the main loop (cd_names_news): if the disc is to play at once, its
+     * first track is then open already, and asking waits for that. */
     if (first >= 0)
-        cd_names_request(device, cd_names_on);      /* the names follow when they are found */
+        snprintf(cd_names_wanted, sizeof cd_names_wanted, "%s", device);
     return first;
 }
 
@@ -2514,6 +2518,10 @@ static void cd_names_news(void)
     char device[CD_DEVICE_MAX], text[400];
     int i, t, number;
 
+    if (cd_names_wanted[0]) {
+        cd_names_request(cd_names_wanted, cd_names_on);
+        cd_names_wanted[0] = '\0';
+    }
     if (!names)
         return;
     for (i = 0; i < playlist_count(); i++) {
