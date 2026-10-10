@@ -188,6 +188,69 @@ static size_t text_packs(unsigned char *out, int kind, int block, const char *co
 }
 
 /* What a disc says of itself: CD-Text, and the titles in an image's sheet. */
+/* Two tracks open at once, as in playback (the one heard and the one to
+ * follow): they must not read turn and turn about, which on a drive is
+ * the head rushing to and fro. On a disc of its own, with tracks longer
+ * than what is read ahead. */
+static void test_turns(void)
+{
+    enum { TRACK_S = 6 };
+    static short sound[CD_RATE / 10 * 2];
+    static char silence[CD_SECTOR * CD_SECTORS_PER_S];
+    char sheet[256], paths[2][600];
+    Codec heard, next;
+    long jumps;
+    FILE *f;
+    int i;
+
+    f = fopen(test_path("long.bin"), "wb");
+    for (i = 0; f && i < 2 * TRACK_S; i++)
+        fwrite(silence, 1, sizeof silence, f);
+    if (f)
+        fclose(f);
+    snprintf(sheet, sizeof sheet, "FILE \"long.bin\" BINARY\n TRACK 01 AUDIO\n  INDEX 01 00:00:00\n"
+                                  " TRACK 02 AUDIO\n  INDEX 01 00:%02d:00\n", TRACK_S);
+    test_write(test_path("long.cue"), sheet, strlen(sheet));
+    cd_make_path(paths[0], sizeof paths[0], test_path("long.cue"), 1);
+    cd_make_path(paths[1], sizeof paths[1], test_path("long.cue"), 2);
+
+    memset(&heard, 0, sizeof heard);
+    memset(&next, 0, sizeof next);
+    usleep(100 * 1000);         /* threads of the tests before have let go */
+    cd_image_jumps = 0;
+    CHECK(codec_open(paths[1], &heard));
+    CHECK(codec_open(paths[0], &next));     /* returns at once: it is not waited for */
+    if (!heard.state || !next.state)
+        return;
+    CHECK(heard.seek(heard.state, 0));      /* as a decoder does after opening: nothing is read again */
+    usleep(300 * 1000);
+    /* Only the track heard has been read, as far as is read ahead. */
+    CHECK_INT((int)cd_image_jumps, 1);
+    /* Nor does listening change that, or a seek within what is in hand... */
+    for (i = 0; i < 5; i++)
+        CHECK_INT((int)heard.read(heard.state, sound, CD_RATE / 10), CD_RATE / 10);
+    CHECK(heard.seek(heard.state, CD_RATE));
+    usleep(100 * 1000);
+    CHECK_INT((int)cd_image_jumps, 1);
+    /* ...until the track has been read to its end: then the other one is. */
+    for (i = 0; i < 15; i++) {
+        CHECK_INT((int)heard.read(heard.state, sound, CD_RATE / 10), CD_RATE / 10);
+        usleep(30 * 1000);
+    }
+    usleep(200 * 1000);
+    CHECK_INT((int)cd_image_jumps, 2);
+    /* A seek to somewhere not in hand is one more, and takes the drive back. */
+    jumps = cd_image_jumps;
+    CHECK(heard.seek(heard.state, 0));
+    usleep(100 * 1000);
+    CHECK_INT((int)(cd_image_jumps - jumps), 1);
+    /* When the other becomes the one heard, it finds its sound waiting. */
+    CHECK_INT((int)next.read(next.state, sound, CD_RATE / 10), CD_RATE / 10);
+    heard.close(heard.state);
+    next.close(next.state);
+    usleep(100 * 1000);
+}
+
 static void test_disc_names(void)
 {
     static const char *const titles[] = { "An Album With a Long Name", "First Song of Them", "Caf\xE9", "\t", "Last" };
@@ -352,6 +415,7 @@ int main(void)
     make_disc();
     test_toc();
     test_codec();
+    test_turns();
     test_disc_names();
     test_names();
     test_playback();

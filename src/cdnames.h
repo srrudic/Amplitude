@@ -25,6 +25,9 @@ void cd_names_request(const char *device, int online);
 /* Returns the names, once, when some have been found; otherwise NULL. They
  * stay valid until the next request. */
 const CdNames *cd_names_take(void);
+/* Is the lookup reading from a drive this moment? Playback keeps off the
+ * drive meanwhile, or the two would send it to and fro. */
+int  cd_names_reading(void);
 
 /* The pieces, exposed for the tests. */
 void cd_names_musicbrainz_id(const CdToc *toc, char id[29]);

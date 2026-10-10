@@ -39,6 +39,9 @@ const CdToc *cd_toc(const Cd *cd);
 /* Reads `count` sectors of sound, CD_SECTOR bytes each. Returns 1 if it could. */
 int  cd_read(Cd *cd, long sector, int count, void *out);
 void cd_close(Cd *cd);
+/* For the tests: how often reading from an image went on somewhere other
+ * than where the read before it ended, whichever handle did the reading. */
+extern long cd_image_jumps;
 
 /* Names of the album and its songs. */
 typedef struct {

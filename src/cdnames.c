@@ -469,6 +469,7 @@ static int ask_gnudb(const CdToc *toc, CdNames *out)
 }
 
 static volatile int busy;           /* a lookup is under way */
+static volatile int reading;        /* and it is at the drive this moment */
 static volatile int ready;          /* `found` holds a result nobody has taken */
 static char asked_device[CD_DEVICE_MAX];
 static unsigned long asked_id;      /* the disc last looked up, so as not to ask twice */
@@ -484,12 +485,21 @@ static void lookup(void *arg)
 
     (void)arg;
     /* The same disc as last time needs no asking: its names are known, or
-     * were not to be had a moment ago. */
-    if (cd && (id != asked_id || (!found_any && time(NULL) - asked_at > RETRY_SECONDS))) {
+     * were not to be had a moment ago. What the disc itself carries is read
+     * once only, since that cannot change, and fetching it sends the drive
+     * away from the music to the very start of the disc; later tries are
+     * for the internet alone. */
+    if (cd && id != asked_id) {
         asked_id = id;
         asked_at = time(NULL);
-        found_any = cd_read_names(cd, &found) ||
-                    (asked_online && (ask_musicbrainz(cd_toc(cd), &found) || ask_gnudb(cd_toc(cd), &found)));
+        reading = 1;
+        found_any = cd_read_names(cd, &found);
+        reading = 0;
+        if (!found_any && asked_online)
+            found_any = ask_musicbrainz(cd_toc(cd), &found) || ask_gnudb(cd_toc(cd), &found);
+    } else if (cd && !found_any && asked_online && time(NULL) - asked_at > RETRY_SECONDS) {
+        asked_at = time(NULL);
+        found_any = ask_musicbrainz(cd_toc(cd), &found) || ask_gnudb(cd_toc(cd), &found);
     }
     if (cd && found_any) {
         snprintf(found.device, sizeof found.device, "%s", asked_device);
@@ -509,6 +519,11 @@ void cd_names_request(const char *device, int online)
     snprintf(asked_device, sizeof asked_device, "%s", device);
     if (!plat_thread_start(lookup, NULL))
         busy = 0;
+}
+
+int cd_names_reading(void)
+{
+    return reading;
 }
 
 const CdNames *cd_names_take(void)
