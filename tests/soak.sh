@@ -9,7 +9,8 @@
 #
 # What it does, at random and a few times a second: next and previous track,
 # seeking, pause, stop and play, the jump and Open location windows, the menu,
-# and every so often a change of size (which rebuilds all windows). The
+# minimising and restoring, and every so often a change of size (which
+# rebuilds all windows). The
 # playlist mixes files, every kind of stream from tests/stream_server.py, an
 # address that fails, and a disc image, so the reader threads for streams and
 # CDs are started and stopped thousands of times.
@@ -85,6 +86,8 @@ while [ "$(date +%s)" -lt "$END" ]; do
         12)          drive key 0 j 0 wait 200 key 3 t 0 key 3 o 0 key 3 Escape 0 ;;
         13)          drive key 0 l 4 wait 200 key 5 h 0 key 5 Escape 0 ;;
         14|15)       drive rclick 0 50 50 500 300 wait 150 menu 2000 5 ;;   # the menu, closed by a click outside
+        16)          # minimised for a moment (nothing is painted meanwhile), and back
+                     drive click 0 $((258 * s / 100)) $((7 * s / 100)) 0 wait $(( $(rnd 1500) + 200 )) restore 0 ;;
         17)          # the other size: all windows are destroyed and made again
                      if [ $big = 0 ]; then y=52; else y=39; fi
                      drive rclick 0 50 50 500 300 wait 150 menu $((30 * s / 100)) $((152 * s / 100)) wait 200 \
