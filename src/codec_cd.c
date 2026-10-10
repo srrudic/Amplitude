@@ -26,7 +26,7 @@
 #define CHUNK_SECTORS   15      /* read at a time: a fifth of a second */
 #define AHEAD_BYTES     ((size_t)AHEAD_SECTORS * CD_SECTOR)
 #define FRAME_BYTES     4
-#define START_SECTORS   38      /* in hand before a track starts: half a second */
+#define START_SECTORS   150     /* in hand before sound is given out: two seconds (see `starved`) */
 #define FIRST_WAIT_MS   8000    /* longest wait for a drive to deliver its first sound */
 #define READ_RETRIES    3
 
@@ -42,6 +42,12 @@ typedef struct {
     long next;                  /* sector of the track the thread reads next */
     uint64_t position;          /* bytes of the track handed out so far */
     int generation;             /* goes up at every seek, so a read under way is dropped */
+    /* No sound is given out until a fair amount is in hand: at the start,
+     * after a seek, and whenever the buffer has run dry. A drive woken from
+     * standstill delivers a first second at once and then nothing while it
+     * gets up to speed; playing that second only to fall silent is worse
+     * than starting a little later. */
+    int starved;
     volatile int quit, released;
 } CdTrackState;
 
@@ -144,8 +150,13 @@ static void reader(void *arg)
     free(t);
 }
 
-/* Waits until the thread has enough to start playing on: a drive still
- * getting up to speed delivers its first sectors in fits and starts. Not
+/* Is enough in hand to give sound out (again)? Call with the lock held. */
+static int enough(const CdTrackState *t)
+{
+    return t->fill >= (size_t)START_SECTORS * CD_SECTOR || t->next >= t->sectors;
+}
+
+/* Waits until the thread has enough to start playing on. Not
  * while the drive is another track's, though: this one is then only being
  * made ready, and will have its sound by the time its turn comes. */
 static void wait_for_sound(CdTrackState *t)
@@ -156,7 +167,7 @@ static void wait_for_sound(CdTrackState *t)
         int ready;
 
         lock(t);
-        ready = t->fill >= (size_t)START_SECTORS * CD_SECTOR || t->next >= t->sectors;
+        ready = enough(t);
         unlock(t);
         if (ready || others_turn(t))
             return;
@@ -177,7 +188,9 @@ static size_t cd_track_read(void *state, short *out, size_t frames)
     left = t->bytes - t->position;
     if (want > left)
         want = (size_t)left;
-    while (done < want && t->fill) {
+    if (t->starved && enough(t))
+        t->starved = 0;
+    while (done < want && t->fill && !t->starved) {
         size_t n = want - done;
 
         if (n > t->fill)
@@ -190,9 +203,12 @@ static size_t cd_track_read(void *state, short *out, size_t frames)
         done += n & ~(size_t)(FRAME_BYTES - 1);
     }
     t->position += done;
+    if (done < want)
+        t->starved = 1;
     unlock(t);
-    /* The drive has fallen behind: silence, so that the track does not
-     * seem to have ended. It is not counted as part of the track. */
+    /* The drive has fallen behind (or has yet to deliver): silence, so
+     * that the track does not seem to have ended. It is not counted as part
+     * of the track. */
     if (done < want)
         memset(dst + done, 0, want - done);
     return want / FRAME_BYTES;
@@ -220,6 +236,7 @@ static int cd_track_seek(void *state, uint64_t frame)
         t->generation++;
         t->next = (long)(byte / CD_SECTOR);
         t->at = t->fill = 0;
+        t->starved = 1;
     }
     t->position = byte;
     unlock(t);
@@ -261,6 +278,7 @@ int codec_open_cd(const char *path, Codec *codec)
         return 0;
     }
     t->cd = cd;
+    t->starved = 1;
     snprintf(t->device, sizeof t->device, "%s", device);
     t->first = toc->track[i].start;
     t->sectors = toc->track[i].sectors;
