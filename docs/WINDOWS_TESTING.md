@@ -379,8 +379,8 @@ window to the screen and has never run. Look hard here.
   desktop: the menu closes. Before, it stayed open on top of everything.
   (Posted messages cannot show this: the menu closes when Windows tells
   the player that another program was activated.)
-- **W9** *(added later; not yet run on Windows)* Drawing was changed in
-  two ways that Windows has not seen. The main window is now repainted
+- **W9** *(added later; run in the fourth run)* Drawing was changed in
+  two ways that Windows had not seen. The main window is now repainted
   only where it changed (title, clock, spectrum, seek bar), and only those
   rows are compared and sent (`plat_window_present_rows`); and while the
   main window is minimised nothing is painted at all
@@ -390,7 +390,13 @@ window to the screen and has never run. Look hard here.
   of the old title, the seek knob); press buttons and move the volume
   while it plays. Then minimise from the taskbar for ten seconds and
   restore: the window is complete at once and the clock has moved on.
-  `Measure-AmpCpu` minimised should read clearly less than on screen.
+  `Measure-AmpCpu` minimised should read clearly less than on screen;
+  measure a minute at a time, and more than once (twenty seconds gave
+  anything from 0.3% to 9.7% for the same thing). A still picture can be
+  checked to the pixel: stop the track, take a shot, make Windows ask for
+  the whole window again (`RedrawWindow` with `RDW_INVALIDATE |
+  RDW_UPDATENOW`, which repaints all of it), take another; they must be
+  equal.
 - **W6** Press J (or Ctrl+J) in the main window: jump to file opens. Type
   part of a title with `Send-AmpText`; the list narrows; Enter plays it.
   Known limit: text typed here is limited to the system code page.
@@ -1147,3 +1153,36 @@ Nothing had to be fixed. Seen along the way:
   in Windows PowerShell 5.1 (PowerShell 7 cannot reach the Windows
   Runtime). `Send-AmpMediaKey` now also presses when the player is the
   overlay's only entry.
+
+### Fourth run, 10 October 2026: drawing only what changed
+
+By a Claude Code session on the same machine, for the two changes in
+drawing that W9 describes. Only the tests that concern them were run.
+
+Environment as before. Commit tested: 7f899e2. Executables built here
+with w64devkit 2.10.0 (GCC 16.2.0), with no warnings in our own sources:
+`build\win32\amplitude.exe` 1,072,128 bytes and
+`build\win64\amplitude.exe` 1,314,304 bytes; again not the release
+executables. `volume=0` and `cd_names=0` throughout; nothing was audible.
+The tracks were ten-minute WAVs made for the run: a tone that sweeps from
+300 to 700 Hz under a title of ninety characters, with Serbian Latin and
+Cyrillic in it (so the title scrolls and the spectrum moves), and silence
+named `Short.wav` (so that moving the volume could not be heard).
+
+On the 64-bit build unless a row says otherwise. "The parts" are the four
+rectangles that `ui_update` repaints: title, clock, spectrum, seek bar.
+
+| Id | Result (pass / fail / not run) | Notes, fix |
+|---|---|---|
+| S5 | pass | Both builds: COMDLG32, GDI32, KERNEL32, msvcrt, SHELL32, USER32 and nothing else. |
+| W9, playing | pass | The long title for a minute at 100% and again at 150%, a shot every five seconds: each of the twelve pairs of neighbouring shots differs inside the parts and nowhere else (615 to 857 pixels at 100%, 930 to 1740 at 150%). Looked at: clock, title and spectrum whole, the seek knob in one place, nothing left behind. The same at 150% on the 32-bit build, six pairs. |
+| W9, against a full repaint | pass | Paused, twenty shots: two pictures (the clock on and off), the same two before and after Windows was made to ask for the whole window. Then, playing: volume and balance clicked to three places each, shuffle, repeat, a seek to the middle, next, previous, stop; the stopped picture is equal to the pixel to the one after a forced full repaint. Also equal: after the menu was opened over the window and closed, after a change of colour, and at 200% after a change of size while playing. On the 32-bit build after next and stop. |
+| W9, minimised | pass | Minimised as the taskbar does it (`SC_MINIMIZE`) for ten seconds while playing: the overlay still says playing; restored, the first shot (0.3 s later) is complete, differs from the one before only inside the parts, and the clock has gone from 00:02 to 00:16. The same after the player's own minimise button, and on the 32-bit build. Four 6 s tracks on repeat, minimised: the overlay shows them following one another, and the window restored shows the right one. |
+| W9, processor | pass | Of one core, a minute each, at 150% with three windows and the long title: on screen 2.97, minimised 0.55, on screen 2.29, minimised 0.39. 32-bit: 3.80, 0.42, 2.42, 0.73. The 32-bit build of e3ea39b, before the change, for comparison: 2.55, 3.52, 3.54, 4.09. So minimised costs a fifth of what it did; on screen no difference could be told apart from the spread between one minute and the next. |
+| D2 | pass | As "W9, playing". |
+| D3 | pass, in part | Minimise and restore: above. Moved to x = -250, half off the screen, and back: whole, differing from the shot before only inside the parts. Covering with another window was not done. |
+| D6 | pass | 100% to 200% from the menu while playing: 550x232, whole, still docked; ini `scale_percent=200`. |
+| D7 | pass | "Color...", the first colour: all three windows at once; ini `color=#4CE0B3`. |
+| W7 | pass | The minimise button hides the equaliser and playlist with the main window; restoring brings all three back. |
+
+Nothing had to be fixed, in the player or in the helper.
