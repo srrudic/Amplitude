@@ -6,7 +6,10 @@
 #include "platform.h"
 
 #include <dlfcn.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
+#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -15,7 +18,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define CONNECT_TIMEOUT_S 15    /* also the longest a send or recv may stall */
+#define CONNECT_TIMEOUT_S 5     /* for each of a server's addresses */
+#define NET_TIMEOUT_S     15    /* the longest a send or recv may stall */
 
 struct PlatConn {
     int fd;
@@ -98,13 +102,45 @@ static int tls_ready(void)
 
 /* --- Connections ------------------------------------------------------------- */
 
+/* connect() with a limit of its own: left to itself it waits a quarter of
+ * a minute or more on an address that does not answer. */
+static int connect_within(int fd, const struct sockaddr *address, socklen_t length, int seconds)
+{
+    struct pollfd wait = { fd, POLLOUT, 0 };
+    int flags = fcntl(fd, F_GETFL, 0), error = 0, ready;
+    socklen_t size = sizeof error;
+
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    if (connect(fd, address, length) != 0) {
+        if (errno != EINPROGRESS)
+            return 0;
+        do
+            ready = poll(&wait, 1, seconds * 1000);
+        while (ready < 0 && errno == EINTR);
+        if (ready != 1 || getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &size) != 0 || error)
+            return 0;
+    }
+    fcntl(fd, F_SETFL, flags);
+    return 1;
+}
+
+/* The secure greeting on a connected socket. */
+static int tls_begin(PlatConn *conn, const char *host)
+{
+    conn->ssl = tls.SSL_new(tls_context);
+    return conn->ssl && tls.SSL_set_fd(conn->ssl, conn->fd) &&
+           /* the name the server must present a certificate for, and the one sent in the greeting */
+           tls.SSL_set1_host(conn->ssl, host) &&
+           tls.SSL_ctrl(conn->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME_, TLSEXT_NAMETYPE_host_name_, (void *)host) &&
+           tls.SSL_connect(conn->ssl) == 1;
+}
+
 PlatConn *plat_net_connect(const char *host, int port, int secure)
 {
     struct addrinfo hints, *list = NULL, *a;
-    struct timeval timeout = { CONNECT_TIMEOUT_S, 0 };
+    struct timeval timeout = { NET_TIMEOUT_S, 0 };
     char service[16];
-    PlatConn *conn;
-    int fd = -1;
+    PlatConn *conn = NULL;
 
     if (secure && !tls_ready())
         return NULL;
@@ -113,39 +149,30 @@ PlatConn *plat_net_connect(const char *host, int port, int secure)
     snprintf(service, sizeof service, "%d", port);
     if (getaddrinfo(host, service, &hints, &list) != 0)
         return NULL;
-    for (a = list; a && fd < 0; a = a->ai_next) {
-        fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+    /* A name often stands for several servers, and one of them may be down
+     * or turn the greeting away: each address is tried in turn until one
+     * works all the way. */
+    for (a = list; a && !conn; a = a->ai_next) {
+        int fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+
         if (fd < 0)
             continue;
         /* A dead server must not hold a thread for ever. */
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout);
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
-        if (connect(fd, a->ai_addr, a->ai_addrlen) != 0) {
+        if (connect_within(fd, a->ai_addr, a->ai_addrlen, CONNECT_TIMEOUT_S))
+            conn = calloc(1, sizeof *conn);
+        if (!conn) {
             close(fd);
-            fd = -1;
+            continue;
+        }
+        conn->fd = fd;
+        if (secure && !tls_begin(conn, host)) {
+            plat_net_close(conn);
+            conn = NULL;
         }
     }
     freeaddrinfo(list);
-    if (fd < 0)
-        return NULL;
-
-    conn = calloc(1, sizeof *conn);
-    if (!conn) {
-        close(fd);
-        return NULL;
-    }
-    conn->fd = fd;
-    if (secure) {
-        conn->ssl = tls.SSL_new(tls_context);
-        if (!conn->ssl || !tls.SSL_set_fd(conn->ssl, fd) ||
-            /* the name the server must present a certificate for, and the one sent in the greeting */
-            !tls.SSL_set1_host(conn->ssl, host) ||
-            !tls.SSL_ctrl(conn->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME_, TLSEXT_NAMETYPE_host_name_, (void *)host) ||
-            tls.SSL_connect(conn->ssl) != 1) {
-            plat_net_close(conn);
-            return NULL;
-        }
-    }
     return conn;
 }
 
