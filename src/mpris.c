@@ -5,9 +5,9 @@
  * present at build time. The few functions and constants used are declared
  * here; the library's interface has been stable for many years.
  *
- * Only what controllers need is implemented: the transport commands and the
- * read-only properties that say what is playing. Seeking, volume and the
- * track list are left out. */
+ * Only what controllers need is implemented: the transport commands, the
+ * shuffle and repeat switches and the read-only properties that say what is
+ * playing. Seeking, volume and the track list are left out. */
 #include "mpris.h"
 
 #include <dlfcn.h>
@@ -54,6 +54,7 @@ static struct {
     int (*iter_get_arg_type)(Iter *);
     void (*iter_get_basic)(Iter *, void *value);
     dbus_bool_t (*iter_next)(Iter *);
+    void (*iter_recurse)(Iter *, Iter *sub);
     void (*iter_init_append)(DBusMessage *, Iter *);
     dbus_bool_t (*iter_append_basic)(Iter *, int type, const void *value);
     dbus_bool_t (*iter_open_container)(Iter *, int type, const char *signature, Iter *sub);
@@ -83,6 +84,7 @@ static const struct { const char *name; void *slot; } symbols[] = {
     { "dbus_message_iter_get_arg_type", &dbus.iter_get_arg_type },
     { "dbus_message_iter_get_basic", &dbus.iter_get_basic },
     { "dbus_message_iter_next", &dbus.iter_next },
+    { "dbus_message_iter_recurse", &dbus.iter_recurse },
     { "dbus_message_iter_init_append", &dbus.iter_init_append },
     { "dbus_message_iter_append_basic", &dbus.iter_append_basic },
     { "dbus_message_iter_open_container", &dbus.iter_open_container },
@@ -96,6 +98,7 @@ static DBusConnection *bus;
 static int state;
 static char title[512];
 static double position, length;
+static int shuffle, repeat;
 
 /* --- Properties ------------------------------------------------------------- */
 
@@ -153,7 +156,7 @@ static const char *const root_properties[] = {
     "CanQuit", "CanRaise", "HasTrackList", "Identity", "DesktopEntry", "SupportedUriSchemes", "SupportedMimeTypes", NULL };
 static const char *const player_properties[] = {
     "PlaybackStatus", "Metadata", "Position", "Rate", "MinimumRate", "MaximumRate", "Volume",
-    "CanGoNext", "CanGoPrevious", "CanPlay", "CanPause", "CanSeek", "CanControl", NULL };
+    "Shuffle", "LoopStatus", "CanGoNext", "CanGoPrevious", "CanPlay", "CanPause", "CanSeek", "CanControl", NULL };
 
 /* Appends the value of a property as a variant. Returns 0 for a name that
  * is not one of ours. */
@@ -161,7 +164,7 @@ static int property(Iter *it, const char *name)
 {
     static const char *const statuses[] = { "Stopped", "Playing", "Paused" };
     const char *text;
-    dbus_bool_t yes = 1, no = 0;
+    dbus_bool_t yes = 1, no = 0, shuffled = shuffle != 0;
     double one = 1.0;
     long long microseconds = (long long)(position * 1e6);
 
@@ -170,6 +173,11 @@ static int property(Iter *it, const char *name)
         variant(it, T_STRING, &text);
     } else if (!strcmp(name, "Metadata")) {
         metadata(it);
+    } else if (!strcmp(name, "Shuffle")) {
+        variant(it, T_BOOLEAN, &shuffled);
+    } else if (!strcmp(name, "LoopStatus")) {
+        text = repeat == 2 ? "Track" : repeat ? "Playlist" : "None";
+        variant(it, T_STRING, &text);
     } else if (!strcmp(name, "Position")) {
         variant(it, T_INT64, &microseconds);
     } else if (!strcmp(name, "Rate") || !strcmp(name, "MinimumRate") || !strcmp(name, "MaximumRate") ||
@@ -211,10 +219,10 @@ static void all_properties(Iter *it, const char *const *names)
     dbus.iter_close_container(it, &dict);
 }
 
-/* Tells whoever listens that the status and track changed. */
+/* Tells whoever listens that the status, the track or a switch changed. */
 static void announce(void)
 {
-    static const char *const changed[] = { "PlaybackStatus", "Metadata", NULL };
+    static const char *const changed[] = { "PlaybackStatus", "Metadata", "Shuffle", "LoopStatus", NULL };
     const char *iface = PLAYER_IFACE;
     DBusMessage *signal = dbus.new_signal(OBJECT_PATH, PROPS_IFACE, "PropertiesChanged");
     Iter it, none;
@@ -244,6 +252,35 @@ static void string_arguments(DBusMessage *message, const char **first, const cha
     dbus.iter_get_basic(&it, first);
     if (dbus.iter_next(&it) && dbus.iter_get_arg_type(&it) == T_STRING)
         dbus.iter_get_basic(&it, second);
+}
+
+/* Properties.Set(interface, name, variant): the two switches are all that
+ * can be set. Returns 0 for anything else. The new state is announced once
+ * the player has taken it up (see mpris_update()). */
+static int set_property(DBusMessage *message, void (*on_command)(int command))
+{
+    const char *name, *text;
+    dbus_bool_t on;
+    Iter it, value;
+
+    if (!dbus.iter_init(message, &it) || dbus.iter_get_arg_type(&it) != T_STRING || !dbus.iter_next(&it) ||
+        dbus.iter_get_arg_type(&it) != T_STRING)
+        return 0;
+    dbus.iter_get_basic(&it, &name);
+    if (!dbus.iter_next(&it) || dbus.iter_get_arg_type(&it) != T_VARIANT)
+        return 0;
+    dbus.iter_recurse(&it, &value);
+    if (!strcmp(name, "Shuffle") && dbus.iter_get_arg_type(&value) == T_BOOLEAN) {
+        dbus.iter_get_basic(&value, &on);
+        on_command(on ? MPRIS_SHUFFLE_ON : MPRIS_SHUFFLE_OFF);
+    } else if (!strcmp(name, "LoopStatus") && dbus.iter_get_arg_type(&value) == T_STRING) {
+        dbus.iter_get_basic(&value, &text);
+        on_command(!strcmp(text, "Track") ? MPRIS_REPEAT_TRACK :
+                   !strcmp(text, "Playlist") ? MPRIS_REPEAT_LIST : MPRIS_REPEAT_OFF);
+    } else {
+        return 0;
+    }
+    return 1;
 }
 
 static void handle(DBusMessage *message, void (*on_command)(int command))
@@ -280,6 +317,9 @@ static void handle(DBusMessage *message, void (*on_command)(int command))
                 reply = dbus.new_error(message, "org.freedesktop.DBus.Error.UnknownProperty", wanted_name);
             }
         }
+    } else if (!strcmp(iface, PROPS_IFACE) && !strcmp(member, "Set")) {
+        if (set_property(message, on_command))
+            reply = dbus.new_method_return(message);
     } else if (!strcmp(iface, PLAYER_IFACE) || !strcmp(iface, ROOT_IFACE) || !iface[0]) {
         for (i = 0; i < sizeof commands / sizeof commands[0]; i++) {
             if (!strcmp(member, commands[i].member)) {
@@ -289,7 +329,7 @@ static void handle(DBusMessage *message, void (*on_command)(int command))
             }
         }
     }
-    if (!reply)     /* seeking, setting properties and anything else */
+    if (!reply)     /* seeking, setting other properties and anything else */
         reply = dbus.new_error(message, "org.freedesktop.DBus.Error.NotSupported", member);
     if (reply) {
         if (!dbus.get_no_reply(message))
@@ -368,14 +408,17 @@ void mpris_poll(void (*on_command)(int command))
     dbus.flush(bus);
 }
 
-void mpris_update(int new_state, const char *new_title, double new_position, double new_length)
+void mpris_update(int new_state, const char *new_title, double new_position, double new_length,
+                  int new_shuffle, int new_repeat)
 {
     int changed = new_state != state || strcmp(new_title, title) != 0 ||
-                  (long long)new_length != (long long)length;
+                  (long long)new_length != (long long)length || new_shuffle != shuffle || new_repeat != repeat;
 
     state = new_state;
     position = new_position;
     length = new_length;
+    shuffle = new_shuffle;
+    repeat = new_repeat;
     if (changed) {
         size_t n;
 

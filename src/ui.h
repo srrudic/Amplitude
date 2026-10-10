@@ -117,7 +117,7 @@ typedef struct {
     int kbps, khz, channels;
     float volume;           /* 0..1 */
     float balance;          /* -1 (left) .. 1 (right) */
-    int shuffle, repeat;
+    int shuffle, repeat;        /* repeat: 0 off, 1 the list, 2 the track */
     int eq_visible, pl_visible;
     int pressed;            /* UI_* element currently held down */
     uint32_t ticks;         /* drives the title marquee */

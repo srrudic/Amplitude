@@ -45,18 +45,23 @@ colour.
 | B          | Next track      |
 | L          | Open file       |
 | S          | Toggle shuffle  |
-| R          | Toggle repeat   |
+| R          | Repeat: off, the list, one track |
 | J, Ctrl+J  | Jump to file    |
 | G          | Show/hide equaliser |
 | E          | Show/hide playlist  |
 | Left/Right | Seek 5 seconds  |
 | Up/Down    | Volume          |
 
+**Repeat.** The repeat button (and R, and the menu entry) steps through
+three settings: off, repeat the whole list, and repeat one track, which the
+button shows with a "1" in its loop. While one track is repeated, the next and
+previous buttons still move through the list.
+
 **Media keys.** Play/pause, stop, next and previous keys work whichever
 program has the keyboard, and so do the buttons of Bluetooth headphones and
 the desktop's own media controls. On Linux this goes through the desktop's
 media-player interface (MPRIS), which also lets the panel show what is
-playing; where there is none, the keys are taken from the X server
+playing and switch shuffle and repeat; where there is none, the keys are taken from the X server
 directly. On Windows 8.1 and later the player joins the system's media
 overlay, which shows the title and the buttons beside the volume when it
 changes, on the lock screen and in the taskbar's quick settings; the keys

@@ -36,7 +36,7 @@ static const struct { int w, h; } sheet_sizes[SKIN_SHEET_COUNT] = {
     [SKIN_POSBAR]   = { 307, 10 },
     [SKIN_VOLUME]   = { 68, 433 },
     [SKIN_BALANCE]  = { 47, 433 },
-    [SKIN_SHUFREP]  = { 158, 85 },      /* classic 92 wide, plus the small icon buttons */
+    [SKIN_SHUFREP]  = { 180, 85 },      /* classic 92 wide, plus the small icon buttons */
     [SKIN_EQMAIN]   = { 275, 315 },
     [SKIN_PLEDIT]   = { 280, 186 },
 };
@@ -361,6 +361,26 @@ static void repeat_icon(Canvas *c, int x, int y, uint32_t color)
     arrowhead(c, fx, fy + 7, -1, color);
 }
 
+/* Repeat one track: the same loop, opened in the middle for a "1" as tall
+ * as the icon. */
+static void repeat_one_icon(Canvas *c, int x, int y, uint32_t color)
+{
+    float fx = (float)x, fy = (float)y;
+    float top_left[] = { fx + 1, fy + 5, fx + 1, fy + 2, fx + 3.5f, fy + 2 };
+    float top_right[] = { fx + 10, fy + 2, fx + 11.5f, fy + 2 };
+    float bottom_right[] = { fx + 13, fy + 4, fx + 13, fy + 7, fx + 10.5f, fy + 7 };
+    float bottom_left[] = { fx + 4, fy + 7, fx + 2.5f, fy + 7 };
+    float one[] = { fx + 5.5f, fy + 2.5f, fx + 7.5f, fy + 0.7f, fx + 7.5f, fy + 8.3f };
+
+    gfx_polyline(c, top_left, 3, 1.3f, color);
+    gfx_polyline(c, top_right, 2, 1.3f, color);
+    gfx_polyline(c, bottom_right, 3, 1.3f, color);
+    gfx_polyline(c, bottom_left, 2, 1.3f, color);
+    arrowhead(c, fx + 14, fy + 2, 1, color);
+    arrowhead(c, fx, fy + 7, -1, color);
+    gfx_polyline(c, one, 3, 1.6f, color);
+}
+
 /* A cog wheel, 10 across, centred on cx, cy. */
 static void cog_icon(Canvas *c, float cx, float cy, uint32_t color)
 {
@@ -389,10 +409,11 @@ static void paint_shufrep(Canvas *c)
 {
     int state;
 
-    gfx_rect(c, 0, 0, 158, 85, COL_BODY);
+    gfx_rect(c, 0, 0, 180, 85, COL_BODY);
     /* The small buttons of the built-in layout, to the right of the classic
      * sheet: shuffle, repeat and the menu cog. Rows as below; the cog has
-     * no light and only uses the first two. */
+     * no light and only uses the first two. Beside them, the repeat button
+     * while one track is repeated: up and pressed. */
     for (state = 0; state < 4; state++) {
         int y = state * 16, pressed = state & 1, on = state >= 2;
 
@@ -402,6 +423,10 @@ static void paint_shufrep(Canvas *c)
         repeat_icon(c, 114 + 5 + pressed, y + 4 + pressed, COL_TEXT);
         button(c, 136, y, 22, 16, pressed);
         cog_icon(c, 136 + 11 + (float)pressed, (float)y + 8 + (float)pressed, COL_TEXT);
+    }
+    for (state = 0; state < 2; state++) {
+        toggle(c, 158, state * 16, 22, 16, state, 1, 0, 0, NULL);
+        repeat_one_icon(c, 158 + 5 + state, state * 16 + 4 + state, COL_TEXT);
     }
     /* Rows: off, off pressed, on, on pressed. */
     for (state = 0; state < 4; state++) {

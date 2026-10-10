@@ -5,7 +5,8 @@
 #define MPRIS_H
 
 /* What a controller may ask for. */
-enum { MPRIS_PLAY, MPRIS_PAUSE, MPRIS_PLAY_PAUSE, MPRIS_STOP, MPRIS_NEXT, MPRIS_PREVIOUS, MPRIS_RAISE, MPRIS_QUIT };
+enum { MPRIS_PLAY, MPRIS_PAUSE, MPRIS_PLAY_PAUSE, MPRIS_STOP, MPRIS_NEXT, MPRIS_PREVIOUS, MPRIS_RAISE, MPRIS_QUIT,
+       MPRIS_SHUFFLE_ON, MPRIS_SHUFFLE_OFF, MPRIS_REPEAT_OFF, MPRIS_REPEAT_LIST, MPRIS_REPEAT_TRACK };
 
 /* Connects and announces the player. Returns 0 if there is no session bus
  * or no D-Bus library, in which case the other functions do nothing. */
@@ -15,8 +16,9 @@ void mpris_shutdown(void);
 int  mpris_fd(void);
 /* Answers whatever has arrived; `on_command` is called for each request. */
 void mpris_poll(void (*on_command)(int command));
-/* What is playing: state 0 stopped, 1 playing, 2 paused; times in seconds.
- * Call as often as convenient; controllers are told only of changes. */
-void mpris_update(int state, const char *title, double position, double length);
+/* What is playing: state 0 stopped, 1 playing, 2 paused; times in seconds;
+ * whether shuffle is on; repeat 0 off, 1 the list, 2 the track. Call as often as convenient;
+ * controllers are told only of changes. */
+void mpris_update(int state, const char *title, double position, double length, int shuffle, int repeat);
 
 #endif

@@ -45,7 +45,12 @@ enum {
     PK_MEDIA_PLAY_PAUSE,
     PK_MEDIA_STOP,
     PK_MEDIA_NEXT,
-    PK_MEDIA_PREV
+    PK_MEDIA_PREV,
+    PK_MEDIA_SHUFFLE_ON,    /* asked for by the desktop's media controls */
+    PK_MEDIA_SHUFFLE_OFF,
+    PK_MEDIA_REPEAT_OFF,
+    PK_MEDIA_REPEAT_LIST,
+    PK_MEDIA_REPEAT_TRACK
 };
 
 /* PlatEvent.mods */
@@ -136,8 +141,9 @@ int  plat_open_files_dialog(PlatPathFn fn, void *user);
 int  plat_open_folder_dialog(char *out, size_t out_size);
 /* Tells the desktop what is playing, for its media controls where it has
  * any: state 0 stopped, 1 playing, 2 paused; title in UTF-8; times in
- * seconds. Cheap to call every frame. */
-void plat_media_update(int state, const char *title, double position, double length);
+ * seconds; whether shuffle is on; repeat 0 off, 1 the list, 2 the track.
+ * Cheap to call every frame. */
+void plat_media_update(int state, const char *title, double position, double length, int shuffle, int repeat);
 
 /* --- Network and threads (net_posix.c, net_win32.c) --------------------------
  * Just enough for stream.c to fetch audio over HTTP. Everything here blocks

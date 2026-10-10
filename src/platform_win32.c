@@ -704,11 +704,13 @@ void plat_instance_claim(PlatWindow *main_window)
             RegisterHotKey(main_window->hwnd, i + 1, 0, media_keys[i].vk);
 }
 
-void plat_media_update(int state, const char *title, double position, double length)
+void plat_media_update(int state, const char *title, double position, double length, int shuffle, int repeat)
 {
-    /* The overlay has no use for the times. */
+    /* The overlay has no use for the times, and no buttons for the rest. */
     (void)position;
     (void)length;
+    (void)shuffle;
+    (void)repeat;
     smtc_update(state, title);
 }
 

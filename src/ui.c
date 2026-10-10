@@ -405,6 +405,26 @@ static void draw_vis(Canvas *c, const Skin *skin, const UiModel *m)
         draw_scope(c, skin, m);
 }
 
+/* A "1" at the right of the repeat button while a single track is
+ * repeated: classic skins have no picture for that. (The built-in skin has
+ * a button of its own for it.) Whatever the skin painted there is not
+ * known, so the figure brings a dark edge to stand out against any of it. */
+static void repeat_one(Canvas *c, const Skin *skin, int x, int y, int pressed)
+{
+    int pass;
+
+    x += pressed;
+    y += pressed;
+    for (pass = 0; pass < 2; pass++) {
+        int grow = pass ? 0 : 1;        /* first the edge, one pixel larger all round */
+        uint32_t color = pass ? skin->text_color : 0x000000;
+
+        gfx_rect(c, x + 2 - grow, y - grow, 2 + 2 * grow, 7 + 2 * grow, color);     /* stem */
+        gfx_rect(c, x - grow, y + 1 - grow, 2 + 2 * grow, 2 + 2 * grow, color);     /* flag */
+        gfx_rect(c, x - grow, y + 6 - grow, 6 + 2 * grow, 1 + 2 * grow, color);     /* foot */
+    }
+}
+
 /* Volume and balance: the background frame shows the level, the thumb
  * (which some skins leave out) sits on top. */
 static void draw_slider(Canvas *c, const Skin *skin, int element, int sheet, int sx,
@@ -492,7 +512,7 @@ static void draw_main(Canvas *c, const Skin *skin, const UiModel *m)
     if (compact(skin)) {
         /* Small buttons from the right-hand part of the built-in sheet:
          * rows off, off pressed, on, on pressed. */
-        int on[3] = { m->shuffle, m->repeat, 0 };
+        int on[3] = { m->shuffle, m->repeat != 0, 0 };
 
         for (i = UI_SHUFFLE; i <= UI_MENU; i++) {
             const Rect *r = element_rect(skin, i);
@@ -500,11 +520,19 @@ static void draw_main(Canvas *c, const Skin *skin, const UiModel *m)
             skin_blit(c, skin, SKIN_SHUFREP, 92 + (i - UI_SHUFFLE) * 22,
                       (on[i - UI_SHUFFLE] ? 32 : 0) + (m->pressed == i ? 16 : 0), r->w, r->h, r->x, r->y);
         }
+        if (m->repeat == 2) {   /* one track: a button of its own, beside the others on the sheet */
+            const Rect *r = element_rect(skin, UI_REPEAT);
+
+            skin_blit(c, skin, SKIN_SHUFREP, 158, m->pressed == UI_REPEAT ? 16 : 0, r->w, r->h, r->x, r->y);
+        }
         return;
     }
     skin_blit(c, skin, SKIN_SHUFREP, 28, (m->shuffle ? 30 : 0) + (m->pressed == UI_SHUFFLE ? 15 : 0),
              47, 15, 164, 89);
     sprite(c, skin, SKIN_SHUFREP, 0, (m->repeat ? 30 : 0) + (m->pressed == UI_REPEAT ? 15 : 0), UI_REPEAT);
+    if (m->repeat == 2)
+        repeat_one(c, skin, rects[UI_REPEAT].x + rects[UI_REPEAT].w - 10, rects[UI_REPEAT].y + 4,
+                   m->pressed == UI_REPEAT);
 }
 
 void ui_draw(uint32_t *framebuffer, int scale, const Skin *skin, const UiModel *m)

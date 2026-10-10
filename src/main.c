@@ -44,6 +44,7 @@
 #define WHEEL_ROWS      3
 #define MAX_FOLDER_DEPTH 16
 #define HISTORY_MAX     256     /* tracks that "previous" can step back through in shuffle */
+enum { REPEAT_OFF, REPEAT_LIST, REPEAT_TRACK };
 #define PL_MAX_W        (PL_MIN_W + 40 * PL_STEP_W)
 #define PL_MAX_H        (PL_MIN_H + 30 * PL_STEP_H)
 
@@ -85,7 +86,7 @@ static float volume = 0.8f;
 static float balance;
 static uint32_t volume_readout_until;   /* ticks until which the title display shows the volume */
 static int volume_readout;
-static int shuffle, repeat;
+static int shuffle, repeat;     /* repeat: 0 off, 1 the list, 2 the track */
 static int cd_names_on;             /* look CD track names up on the internet when the disc has none */
 static int vis_mode;
 static int queued_index = -1;       /* track prepared for a gapless hand-over */
@@ -563,13 +564,17 @@ static void play_track(int index)
     track_chosen = 1;       /* asked for, as opposed to arrived at (see play_next) */
 }
 
-/* Returns the track to play after the current one, or -1 at the end. */
-static int next_track(void)
+/* Returns the track to play after the current one, or -1 at the end.
+ * `by_itself`: the track has run out, as opposed to the listener asking for
+ * the next one, who gets it even while one track is being repeated. */
+static int next_track(int by_itself)
 {
     int count = playlist_count(), queued = playlist_queue_head();
 
     if (queued >= 0)
         return queued;      /* tracks picked to play next come before any other order */
+    if (by_itself && repeat == REPEAT_TRACK && playlist_get(track_index))
+        return track_index;
     if (shuffle && count > 1) {
         int index = rand() % (count - 1);
 
@@ -583,12 +588,16 @@ static int next_track(void)
 /* Moves on to the following track, passing over files that cannot be
  * played. Returns 0 at the end of the list, or if nothing in it will play
  * (so a list of broken files cannot go round for ever). */
-static int play_next(void)
+static int play_next(int by_itself)
 {
     int tries = playlist_count();
 
     while (tries-- > 0) {
-        int next = next_track();
+        /* Only the first try may be the same track again: if that will
+         * not play, the search has to leave it. */
+        int next = next_track(by_itself);
+
+        by_itself = 0;
 
         if (next < 0)
             return 0;
@@ -605,7 +614,7 @@ static int play_next(void)
  * so the change-over happens without a gap. */
 static void update_queue(void)
 {
-    int next = track_loaded ? next_track() : -1;
+    int next = track_loaded ? next_track(1) : -1;
     int result = audio_queue_next(next >= 0 ? playlist_get(next)->path : NULL);
 
     if (result < 0)
@@ -1589,7 +1598,7 @@ static void open_menu(int which)
         menu_add("Playlist", CMD_PL, wins[WIN_PL].visible);
         menu_add(NULL, 0, 0);
         menu_add("Shuffle", CMD_SHUFFLE, shuffle);
-        menu_add("Repeat", CMD_REPEAT, repeat);
+        menu_add(repeat == REPEAT_TRACK ? "Repeat one track" : "Repeat", CMD_REPEAT, repeat);
         menu_add(NULL, 0, 0);
         menu_add("Skins...", CMD_SKINS, 0);
         menu_add("Size...", CMD_SIZES, 0);
@@ -1657,10 +1666,10 @@ static void do_action(int element)
         }
         break;
     case UI_NEXT:
-        if (queued_index >= 0)
+        if (queued_index >= 0 && queued_index != track_index)   /* not the track being repeated */
             play_track(queued_index);
         else
-            play_next();
+            play_next(0);
         break;
     case UI_MENU:
         /* The same menu as a right click, opening under the cog. */
@@ -1674,7 +1683,7 @@ static void do_action(int element)
         queue_dirty = 1;
         break;
     case UI_REPEAT:
-        repeat = !repeat;
+        repeat = (repeat + 1) % 3;      /* off, the list, the track */
         queue_dirty = 1;
         break;
     case UI_PLAY:
@@ -1930,6 +1939,17 @@ static void media_key(int key)
     case PK_MEDIA_STOP: do_action(UI_STOP); break;
     case PK_MEDIA_NEXT: do_action(UI_NEXT); break;
     case PK_MEDIA_PREV: do_action(UI_PREV); break;
+    case PK_MEDIA_SHUFFLE_ON:
+    case PK_MEDIA_SHUFFLE_OFF:
+        if (shuffle != (key == PK_MEDIA_SHUFFLE_ON))
+            do_action(UI_SHUFFLE);
+        break;
+    case PK_MEDIA_REPEAT_OFF:
+    case PK_MEDIA_REPEAT_LIST:
+    case PK_MEDIA_REPEAT_TRACK:
+        repeat = key - PK_MEDIA_REPEAT_OFF;
+        queue_dirty = 1;
+        break;
     }
 }
 
@@ -2099,7 +2119,7 @@ static void handle_event(const PlatEvent *ev)
     if (win < 0)
         return;
     /* Media keys act whatever window or program has the keyboard. */
-    if (ev->type == PEV_KEY_DOWN && ev->key >= PK_MEDIA_PLAY && ev->key <= PK_MEDIA_PREV) {
+    if (ev->type == PEV_KEY_DOWN && ev->key >= PK_MEDIA_PLAY && ev->key <= PK_MEDIA_REPEAT_TRACK) {
         media_key(ev->key);
         return;
     }
@@ -2302,7 +2322,7 @@ static void render(void)
     /* The desktop's media controls show the track's own title, not the
      * numbered line or a slider's readout. */
     plat_media_update(model.state, track_loaded && playlist_get(track_index) ? playlist_get(track_index)->title : "",
-                      model.position, model.length);
+                      model.position, model.length, shuffle, repeat);
     /* The main window changes a little in most frames (the title moves,
      * the spectrum, the clock) and all over only rarely: only what changed
      * is painted again and looked at for sending to the screen. Minimised,
@@ -2485,7 +2505,7 @@ static void stream_news(void)
         /* Like a file that cannot be played: passed over when the list
          * came to it by itself, left standing when it was asked for. A
          * list of nothing but dead stations must not go round for ever. */
-        if (!track_chosen && ++stream_failures < playlist_count() && !play_next())
+        if (!track_chosen && ++stream_failures < playlist_count() && !play_next(0))
             audio_stop();
         return;
     }
@@ -2656,7 +2676,7 @@ int main(int argc, char **argv)
 
         if (audio_take_advanced() && playlist_get(queued_index))
             track_started(queued_index);
-        if (audio_take_finished() && !play_next())
+        if (audio_take_finished() && !play_next(1))
             audio_stop();
         stream_news();
         cd_names_news();

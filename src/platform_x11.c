@@ -160,6 +160,11 @@ static void on_mpris_command(int command)
     case MPRIS_STOP:       push_media_key(PK_MEDIA_STOP); break;
     case MPRIS_NEXT:       push_media_key(PK_MEDIA_NEXT); break;
     case MPRIS_PREVIOUS:   push_media_key(PK_MEDIA_PREV); break;
+    case MPRIS_SHUFFLE_ON:  push_media_key(PK_MEDIA_SHUFFLE_ON); break;
+    case MPRIS_SHUFFLE_OFF: push_media_key(PK_MEDIA_SHUFFLE_OFF); break;
+    case MPRIS_REPEAT_OFF:   push_media_key(PK_MEDIA_REPEAT_OFF); break;
+    case MPRIS_REPEAT_LIST:  push_media_key(PK_MEDIA_REPEAT_LIST); break;
+    case MPRIS_REPEAT_TRACK: push_media_key(PK_MEDIA_REPEAT_TRACK); break;
     case MPRIS_RAISE:
         if (main_window)
             XRaiseWindow(dpy, main_window->xwin);
@@ -170,10 +175,10 @@ static void on_mpris_command(int command)
     }
 }
 
-void plat_media_update(int state, const char *title, double position, double length)
+void plat_media_update(int state, const char *title, double position, double length, int shuffle, int repeat)
 {
     if (have_mpris)
-        mpris_update(state, title, position, length);
+        mpris_update(state, title, position, length, shuffle, repeat);
 }
 
 void plat_shutdown(void)

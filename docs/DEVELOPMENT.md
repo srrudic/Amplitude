@@ -439,7 +439,9 @@ the source is to that format.
   libdbus is loaded with `dlopen` when the player starts and its few
   functions are declared by hand, so it is neither a build nor a hard
   run-time dependency. `platform_x11.c` polls it with the X connection and
-  turns requests into `PK_MEDIA_*` key events for the main window. Without
+  turns requests into `PK_MEDIA_*` key events for the main window; the
+  shuffle and repeat switches (the `Shuffle` and `LoopStatus` properties)
+  travel the same way, as events naming the new setting. Without
   a session bus it grabs the XF86Audio keys from the X server instead; it
   never does both, or each press would count twice.
 - **`smtc.c`** (Windows) is the same for the media overlay of Windows 8.1

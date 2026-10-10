@@ -27,7 +27,7 @@ int config_load(Config *config, const char *path)
         { "volume", &config->volume, 0, 100 },
         { "balance", &config->balance, -100, 100 },
         { "shuffle", &config->shuffle, 0, 1 },
-        { "repeat", &config->repeat, 0, 1 },
+        { "repeat", &config->repeat, 0, 2 },
         { "cd_names", &config->cd_names, 0, 1 },
         { "eq_on", &config->eq_on, 0, 1 },
         { "eq_auto", &config->eq_auto, 0, 1 },
