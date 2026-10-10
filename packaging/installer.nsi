@@ -1,6 +1,6 @@
 ; The Windows installers, built with NSIS by "make installer":
 ;
-;     makensis -NOCD -DVERSION=0.2.2 -DBITS=32 -DOUTFILE=build/amplitude-0.2.2-win32-setup.exe packaging/installer.nsi
+;     makensis -NOCD -DVERSION=0.2.3 -DBITS=32 -DOUTFILE=build/amplitude-0.2.3-win32-setup.exe packaging/installer.nsi
 ;
 ; The script is compiled twice, with BITS set to 32 and to 64, giving one
 ; installer per build of the player. The 32-bit one installs on every
