@@ -716,8 +716,8 @@ void plat_media_update(int state, const char *title, double position, double len
 
 /* --- Dialogs ---------------------------------------------------------------- */
 
-#define FILTER(T) T("Audio files\0*.mp3;*.flac;*.wav;*.ogg;*.oga;*.opus;*.m4a;*.mp4;*.aac;") \
-                  T("*.mod;*.xm;*.s3m;*.it;*.m3u\0Skins (*.wsz)\0*.wsz;*.zip\0All files\0*.*\0")
+#define FILTER(T) T("Audio files\0*.mp3;*.flac;*.wav;*.ogg;*.oga;*.opus;*.m4a;*.m4b;*.mp4;*.aac;") \
+                  T("*.mod;*.xm;*.s3m;*.it;*.m3u;*.m3u8;*.pls;*.cue;*.cda\0Skins (*.wsz)\0*.wsz;*.zip\0All files\0*.*\0")
 #define NARROW(x) x
 #define WIDE(x)   L##x
 

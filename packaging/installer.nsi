@@ -31,8 +31,8 @@ RequestExecutionLevel admin     ; writes to Program Files and the all-users Star
 ;   - in Amplitude's "Capabilities", which lists it under Default Programs /
 ;     Default apps. From Windows 8 on only the user can change a default, and
 ;     that is where they do it.
-; The extensions match is_audio_file() in src/main.c, plus .m3u playlists and
-; minus .mp4, which is usually video.
+; The extensions match is_audio_file() in src/main.c, plus playlists and
+; station files (.m3u, .m3u8, .pls) and minus .mp4, which is usually video.
 !define PROGID "Amplitude.AudioFile"
 !define CLASSES "Software\Classes"
 !define CAPABILITIES "Software\Amplitude\Capabilities"
@@ -52,6 +52,8 @@ RequestExecutionLevel admin     ; writes to Program Files and the all-users Star
     !insertmacro ${ACTION} ".s3m"
     !insertmacro ${ACTION} ".it"
     !insertmacro ${ACTION} ".m3u"
+    !insertmacro ${ACTION} ".m3u8"
+    !insertmacro ${ACTION} ".pls"
 !macroend
 
 !macro ASSOCIATE EXT
