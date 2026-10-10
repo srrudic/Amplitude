@@ -25,6 +25,7 @@ typedef struct {
     int shift_x;                /* real pixels added to where gfx_utext() and gfx_blit() draw,
                                  * for moving text by less than a logical pixel */
     int clip_x0, clip_y0, clip_x1, clip_y1;     /* real pixels, x1/y1 exclusive */
+    int bound_x0, bound_y0, bound_x1, bound_y1; /* what no clip can reach beyond; see gfx_set_bound() */
 } Canvas;
 
 typedef struct {
@@ -57,6 +58,10 @@ void gfx_set_clip(Canvas *c, int x, int y, int w, int h);
 /* Narrows the current clip rectangle instead of replacing it. */
 void gfx_intersect_clip(Canvas *c, int x, int y, int w, int h);
 void gfx_reset_clip(Canvas *c);
+/* Confines all drawing to a rectangle from now on, whatever clips are set
+ * and reset later: for painting one part of a picture again by running
+ * the code that paints all of it. Also resets the clip. */
+void gfx_set_bound(Canvas *c, int x, int y, int w, int h);
 
 void gfx_pixel(Canvas *c, int x, int y, uint32_t color);
 void gfx_rect(Canvas *c, int x, int y, int w, int h, uint32_t color);

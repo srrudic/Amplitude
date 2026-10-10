@@ -128,6 +128,13 @@ typedef struct {
 /* Every *_draw() function renders at `scale` percent into a framebuffer of
  * GFX_SCALED(width) x GFX_SCALED(height) real pixels. */
 void  ui_draw(uint32_t *framebuffer, int scale, const Skin *skin, const UiModel *model);
+/* The same picture for less work, for a framebuffer that still holds what
+ * the last call painted into it: only what differs from then is painted
+ * again. Returns the rows of real pixels that may have changed (top equal
+ * to bottom if none did). Call ui_invalidate() when the framebuffer's
+ * contents are lost or the skin or the colours have changed. */
+void  ui_update(uint32_t *framebuffer, int scale, const Skin *skin, const UiModel *model, int *top, int *bottom);
+void  ui_invalidate(void);
 int   ui_hit(const Skin *skin, int x, int y);
 /* Maps an x coordinate to 0..1 along the UI_SEEK, UI_VOLUME or UI_BALANCE slider. */
 float ui_slider_value(int element, int x);

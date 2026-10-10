@@ -202,6 +202,70 @@ static void render_all(const Skin *skin, int scale, const char *prefix)
 }
 
 /* Hit testing: every control answers at its centre, in both layouts. */
+/* Painting only what changed must give the picture that painting everything
+ * gives. A long run of frames in which things change the way they do in
+ * use (time passing, the title scrolling, the oscilloscope moving, buttons
+ * pressed, sliders moved, tracks and titles changing) is drawn both ways
+ * and compared frame by frame. (With the oscilloscope, not the spectrum:
+ * the spectrum's bars depend on how often they have been drawn.) */
+static void test_incremental(const Skin *skin, int scale)
+{
+    static const char *const titles[] = {
+        "1. Short (0:10)", "2. A Title That Is Far Too Long For The Display And So Has To Scroll Along (3:45)",
+        "3. \xD0\x9A\xD0\xB8\xD0\xBD\xD0\xBE - \xD0\x93\xD1\x80\xD1\x83\xD0\xBF\xD0\xBF\xD0\xB0 \xD0\xBA\xD1\x80\xD0\xBE\xD0\xB2\xD0\xB8 and on and on and on and on (4:44)",
+        "VOLUME: 67%", "" };
+    static float vis[AUDIO_VIS_SAMPLES];
+    size_t size = sizeof(uint32_t) * (size_t)GFX_SCALED(UI_W, scale) * (size_t)GFX_SCALED(UI_H, scale);
+    uint32_t *full = malloc(size), *kept = malloc(size);
+    unsigned seed = 12345u + (unsigned)scale;
+    int frame, wrong = 0, partial = 0, top, bottom, i;
+    UiModel m;
+
+    memset(&m, 0, sizeof m);
+    memset(kept, 0x55, size);       /* rubbish: the first frame must replace all of it */
+    m.title = titles[1];
+    m.vis = vis;
+    m.vis_mode = VIS_SCOPE;
+    m.volume = 0.5f;
+    m.length = 200;
+    ui_invalidate();
+    for (frame = 0; frame < 600; frame++) {
+        seed = seed * 1103515245u + 12345u;
+        m.ticks += 7 + (seed >> 16) % 60;
+        if (m.state == AUDIO_PLAYING)
+            m.position += 0.04;
+        for (i = 0; i < AUDIO_VIS_SAMPLES; i++)
+            vis[i] = m.state == AUDIO_PLAYING ? (float)((seed >> 8) + (unsigned)i * 37u) / 4294967296.0f - 0.5f : 0;
+        switch ((seed >> 20) % 40) {    /* now and then, something else changes */
+        case 0: m.title = titles[(seed >> 8) % 5]; break;
+        case 1: m.state = (int)((seed >> 8) % 3); break;
+        case 2: m.pressed = (seed >> 8) % 2 ? UI_PLAY : UI_NONE; break;
+        case 3: m.volume = (float)((seed >> 8) % 100) / 100.0f; break;
+        case 4: m.loaded = !m.loaded; m.kbps = 128; m.khz = 44; m.channels = 2; break;
+        case 5: m.position = (double)((seed >> 8) % 200); break;
+        case 6: m.shuffle = !m.shuffle; break;
+        case 7: m.vis_mode = (seed >> 8) % 2 ? VIS_SCOPE : VIS_OFF; break;
+        case 8: m.pressed = (seed >> 8) % 2 ? UI_SEEK : UI_NONE; break;
+        case 9: m.balance = (float)((seed >> 8) % 200) / 100.0f - 1.0f; break;
+        default: break;
+        }
+        ui_update(kept, scale, skin, &m, &top, &bottom);
+        ui_draw(full, scale, skin, &m);
+        wrong += memcmp(kept, full, size) != 0;
+        partial += bottom - top < GFX_SCALED(UI_H, scale);
+    }
+    CHECK_INT(wrong, 0);
+    CHECK(partial > 400);           /* and most frames were indeed painted in part */
+    /* Told that the framebuffer is lost, everything is painted again. */
+    memset(kept, 0xAA, size);
+    ui_invalidate();
+    ui_update(kept, scale, skin, &m, &top, &bottom);
+    ui_draw(full, scale, skin, &m);
+    CHECK(memcmp(kept, full, size) == 0 && top == 0 && bottom == GFX_SCALED(UI_H, scale));
+    free(full);
+    free(kept);
+}
+
 static void test_hit_testing(const Skin *skin)
 {
     int slider = -1;
@@ -312,6 +376,8 @@ int main(int argc, char **argv)
         render_all(&skin, scales[i], "builtin");
     for (i = 0; i < sizeof scales / sizeof scales[0]; i++)
         test_sprite_cache(&skin, scales[i]);
+    for (i = 0; i < sizeof scales / sizeof scales[0]; i++)
+        test_incremental(&skin, scales[i]);
     skin_free(&skin);
 
     /* The same in another colour: the skin must pick the new shades up. */

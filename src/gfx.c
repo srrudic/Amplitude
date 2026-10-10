@@ -90,14 +90,30 @@ void gfx_init(Canvas *c, uint32_t *px, int w, int h, int scale)
     c->ox = c->oy = c->shift_x = 0;
     c->w = GFX_SCALED(w, scale);
     c->h = GFX_SCALED(h, scale);
+    c->bound_x0 = c->bound_y0 = 0;
+    c->bound_x1 = c->w;
+    c->bound_y1 = c->h;
     gfx_reset_clip(c);
 }
 
 void gfx_reset_clip(Canvas *c)
 {
-    c->clip_x0 = c->clip_y0 = 0;
-    c->clip_x1 = c->w;
-    c->clip_y1 = c->h;
+    c->clip_x0 = c->bound_x0;
+    c->clip_y0 = c->bound_y0;
+    c->clip_x1 = c->bound_x1;
+    c->clip_y1 = c->bound_y1;
+}
+
+void gfx_set_bound(Canvas *c, int x, int y, int w, int h)
+{
+    int x0 = real(c, c->ox + x), y0 = real(c, c->oy + y);
+    int x1 = real(c, c->ox + x + w), y1 = real(c, c->oy + y + h);
+
+    c->bound_x0 = x0 < 0 ? 0 : x0;
+    c->bound_y0 = y0 < 0 ? 0 : y0;
+    c->bound_x1 = x1 > c->w ? c->w : x1;
+    c->bound_y1 = y1 > c->h ? c->h : y1;
+    gfx_reset_clip(c);
 }
 
 void gfx_intersect_clip(Canvas *c, int x, int y, int w, int h)
@@ -376,11 +392,12 @@ unsigned long gfx_unaccent(unsigned long cp)
  * each font pixel becoming a k*k block. */
 static void draw_glyph(Canvas *c, const GfxFont *font, int k, int x, int y, unsigned long cp, uint32_t color)
 {
-    const unsigned char *glyph = find_glyph(font, cp);
+    const unsigned char *glyph;
     int row_bytes = (font->w + 7) / 8, row, col;
 
     if (x >= c->clip_x1 || x + font->w * k <= c->clip_x0 || y >= c->clip_y1 || y + font->h * k <= c->clip_y0)
-        return;
+        return;     /* out of sight: most of a long scrolling title is */
+    glyph = find_glyph(font, cp);
     if (!glyph)
         glyph = find_glyph(font, gfx_unaccent(cp));
     if (!glyph)

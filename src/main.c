@@ -2302,8 +2302,18 @@ static void render(void)
      * numbered line or a slider's readout. */
     plat_media_update(model.state, track_loaded && playlist_get(track_index) ? playlist_get(track_index)->title : "",
                       model.position, model.length);
-    ui_draw(wins[WIN_MAIN].fb, scale, &skin, &model);
-    plat_window_present(wins[WIN_MAIN].plat, wins[WIN_MAIN].fb);
+    /* The main window changes a little in most frames (the title moves,
+     * the spectrum, the clock) and all over only rarely: only what changed
+     * is painted again and looked at for sending to the screen. */
+    {
+        int top, bottom;
+
+        if (wins[WIN_MAIN].redraw)
+            ui_invalidate();
+        wins[WIN_MAIN].redraw = 0;
+        ui_update(wins[WIN_MAIN].fb, scale, &skin, &model, &top, &bottom);
+        plat_window_present_rows(wins[WIN_MAIN].plat, wins[WIN_MAIN].fb, top, bottom);
+    }
 
     /* The equaliser and playlist change rarely, so they are drawn only
      * when their model differs from the one on screen. */

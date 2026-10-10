@@ -507,8 +507,13 @@ void plat_window_resize(PlatWindow *win, int w, int h)
 
 void plat_window_present(PlatWindow *win, const uint32_t *pixels)
 {
+    plat_window_present_rows(win, pixels, 0, win->rh);
+}
+
+void plat_window_present_rows(PlatWindow *win, const uint32_t *pixels, int top, int bottom)
+{
     size_t size = sizeof(uint32_t) * (size_t)win->rw * (size_t)win->rh;
-    int top = 0, bottom = win->rh;
+    int first = top < 0 ? 0 : top, rows = (bottom > win->rh ? win->rh : bottom) - first;
     BITMAPINFO bmi;
     HDC dc;
 
@@ -521,12 +526,27 @@ void plat_window_present(PlatWindow *win, const uint32_t *pixels)
         win->shown_h = win->rh;
         win->stale = 1;
     }
-    if (win->shown && !win->stale)
-        plat_changed_rows(win->shown, pixels, win->rw, win->rh, &top, &bottom);
+    if (win->shown && !win->stale) {
+        /* Only the rows the caller says may have changed are looked at. */
+        if (rows <= 0)
+            return;
+        plat_changed_rows(win->shown + (size_t)first * win->rw, pixels + (size_t)first * win->rw, win->rw, rows,
+                          &top, &bottom);
+        top += first;
+        bottom += first;
+    } else {
+        top = 0;
+        bottom = win->rh;
+    }
     if (top == bottom)
         return;
-    if (win->shown)
-        memcpy(win->shown, pixels, size);
+    if (win->shown) {
+        if (win->stale)
+            memcpy(win->shown, pixels, size);
+        else
+            memcpy(win->shown + (size_t)top * win->rw, pixels + (size_t)top * win->rw,
+                   sizeof(uint32_t) * (size_t)win->rw * (size_t)(bottom - top));
+    }
     win->stale = !win->shown;
 
     /* The changed rows, described as a bitmap of their own. */

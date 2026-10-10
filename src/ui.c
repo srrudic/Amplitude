@@ -418,16 +418,15 @@ static void draw_slider(Canvas *c, const Skin *skin, int element, int sheet, int
                  thumb_x(element, thumb_pos), r->y + 1);
 }
 
-void ui_draw(uint32_t *framebuffer, int scale, const Skin *skin, const UiModel *m)
+/* Paints the main window, or as much of it as the canvas lets through. */
+static void draw_main(Canvas *c, const Skin *skin, const UiModel *m)
 {
     static const int cbutton_x[] = { 0, 23, 46, 69, 92 };
     const Bitmap *titlebar = &skin->sheet[SKIN_TITLEBAR];
-    Canvas canvas, *c = &canvas;
     char text[16];
     float balance = m->balance < 0 ? -m->balance : m->balance;
     int i;
 
-    gfx_init(c, framebuffer, UI_W, UI_H, scale);
     /* A skin's background normally covers the window; only one that is too
      * small leaves anything to clear. */
     if (skin->sheet[SKIN_MAIN].w < UI_W || skin->sheet[SKIN_MAIN].h < UI_H)
@@ -498,4 +497,120 @@ void ui_draw(uint32_t *framebuffer, int scale, const Skin *skin, const UiModel *
     skin_blit(c, skin, SKIN_SHUFREP, 28, (m->shuffle ? 30 : 0) + (m->pressed == UI_SHUFFLE ? 15 : 0),
              47, 15, 164, 89);
     sprite(c, skin, SKIN_SHUFREP, 0, (m->repeat ? 30 : 0) + (m->pressed == UI_REPEAT ? 15 : 0), UI_REPEAT);
+}
+
+void ui_draw(uint32_t *framebuffer, int scale, const Skin *skin, const UiModel *m)
+{
+    Canvas canvas;
+
+    gfx_init(&canvas, framebuffer, UI_W, UI_H, scale);
+    draw_main(&canvas, skin, m);
+}
+
+/* --- Drawing only what changed --------------------------------------------------
+ * Nearly every frame differs from the one before in a small way: the title
+ * has moved on a pixel, the spectrum has changed, a second has passed. Those
+ * parts are known, with the rectangles they lie in. So what was last drawn
+ * is remembered, and when nothing else is different the window is painted
+ * again inside the rectangle around the parts that changed, by the same
+ * code as paints all of it, with the canvas confined to that rectangle.
+ * Whatever lies outside is passed over quickly, and nothing can be painted
+ * differently from a full repaint, because it is the same painting. */
+
+/* Rectangles with a margin: painting a little too much again does no harm. */
+static const Rect part_title = { 108, 22, 160, 16 };    /* the title, in whichever font */
+static const Rect part_time  = { 22, 24, 82, 17 };      /* play state and clock */
+static const Rect part_vis   = { 22, 41, 80, 20 };
+static const Rect part_seek  = { 14, 70, 252, 14 };
+
+static struct {
+    int valid;
+    UiModel model;              /* without what the parts below stand for */
+    char title[512];
+    const uint32_t *framebuffer;
+    const Skin *skin;
+    int scale;
+    uint64_t marquee;           /* the step the scrolling title was at */
+    int second, blink, thumb;
+} shown;
+
+void ui_invalidate(void)
+{
+    shown.valid = 0;
+}
+
+static void include(Rect *all, const Rect *part)
+{
+    int x1 = all->x + all->w, y1 = all->y + all->h;
+
+    if (!all->w) {
+        *all = *part;
+        return;
+    }
+    if (part->x + part->w > x1)
+        x1 = part->x + part->w;
+    if (part->y + part->h > y1)
+        y1 = part->y + part->h;
+    if (part->x < all->x)
+        all->x = part->x;
+    if (part->y < all->y)
+        all->y = part->y;
+    all->w = x1 - all->x;
+    all->h = y1 - all->y;
+}
+
+void ui_update(uint32_t *framebuffer, int scale, const Skin *skin, const UiModel *m, int *top, int *bottom)
+{
+    static const Rect whole = { 0, 0, UI_W, UI_H };
+    UiModel rest;
+    Rect dirty = { 0, 0, 0, 0 };
+    Canvas canvas;
+    uint64_t marquee = (uint64_t)m->ticks * 1000 / (uint64_t)ui_marquee_frame_us(scale);
+    int second = (int)m->position, blink = m->state == AUDIO_PAUSED && (m->ticks / UI_BLINK_MS) % 2;
+    int thumb = m->loaded && m->length > 0 ? thumb_x(UI_SEEK, (float)(m->position / m->length)) : -1;
+    int x0, y0, x1, y1;
+
+    /* Everything that is not one of the parts. (Copied and compared as
+     * bytes, so the caller is to have cleared the model before filling it.) */
+    memcpy(&rest, m, sizeof rest);
+    rest.title = NULL;
+    rest.vis = NULL;
+    rest.ticks = 0;
+    rest.position = 0;
+    if (!shown.valid || framebuffer != shown.framebuffer || skin != shown.skin || scale != shown.scale ||
+        memcmp(&rest, &shown.model, sizeof rest) != 0 || strncmp(m->title, shown.title, sizeof shown.title - 1) != 0) {
+        dirty = whole;
+    } else {
+        if (title_scrolls && marquee != shown.marquee)
+            include(&dirty, &part_title);
+        if (second != shown.second || blink != shown.blink)
+            include(&dirty, &part_time);
+        /* The spectrum moves on with every call that draws it (its bars
+         * fall by themselves), so it is shown every time it is drawn. */
+        if (m->state != AUDIO_STOPPED && m->vis && m->vis_mode != VIS_OFF)
+            include(&dirty, &part_vis);
+        if (thumb != shown.thumb)
+            include(&dirty, &part_seek);
+    }
+    *top = *bottom = 0;
+    if (!dirty.w)
+        return;
+
+    gfx_init(&canvas, framebuffer, UI_W, UI_H, scale);
+    gfx_set_bound(&canvas, dirty.x, dirty.y, dirty.w, dirty.h);
+    draw_main(&canvas, skin, m);
+    gfx_real_rect(&canvas, dirty.x, dirty.y, dirty.w, dirty.h, &x0, &y0, &x1, &y1);
+    *top = y0 < 0 ? 0 : y0;
+    *bottom = y1 > canvas.h ? canvas.h : y1;
+
+    memcpy(&shown.model, &rest, sizeof rest);
+    strncpy(shown.title, m->title, sizeof shown.title - 1);
+    shown.framebuffer = framebuffer;
+    shown.skin = skin;
+    shown.scale = scale;
+    shown.marquee = marquee;
+    shown.second = second;
+    shown.blink = blink;
+    shown.thumb = thumb;
+    shown.valid = 1;
 }

@@ -110,6 +110,10 @@ static inline void plat_changed_rows(const uint32_t *a, const uint32_t *b, int w
     while (*bottom > *top && memcmp(a + (size_t)(*bottom - 1) * w, b + (size_t)(*bottom - 1) * w, row) == 0)
         --*bottom;
 }
+/* The same when the caller knows that nothing outside the rows from `top`
+ * up to but not including `bottom` has changed since the last frame, which
+ * saves looking at the rest. */
+void plat_window_present_rows(PlatWindow *win, const uint32_t *pixels, int top, int bottom);
 void plat_window_get_pos(PlatWindow *win, int *sx, int *sy);
 void plat_window_set_pos(PlatWindow *win, int sx, int sy);
 void plat_window_minimize(PlatWindow *win);

@@ -375,10 +375,24 @@ void plat_window_resize(PlatWindow *win, int w, int h)
 
 void plat_window_present(PlatWindow *win, const uint32_t *pixels)
 {
-    int top = 0, bottom = win->rh;
+    plat_window_present_rows(win, pixels, 0, win->rh);
+}
 
-    if (!win->stale)
-        plat_changed_rows(win->pixels, pixels, win->rw, win->rh, &top, &bottom);
+void plat_window_present_rows(PlatWindow *win, const uint32_t *pixels, int top, int bottom)
+{
+    if (win->stale) {       /* the screen has lost what we sent: all of it again */
+        top = 0;
+        bottom = win->rh;
+    } else {
+        int first = top < 0 ? 0 : top, rows = (bottom > win->rh ? win->rh : bottom) - first;
+
+        if (rows <= 0)
+            return;
+        plat_changed_rows(win->pixels + (size_t)first * win->rw, pixels + (size_t)first * win->rw, win->rw, rows,
+                          &top, &bottom);
+        top += first;
+        bottom += first;
+    }
     if (top == bottom)
         return;
     memcpy(win->pixels + (size_t)top * win->rw, pixels + (size_t)top * win->rw,
