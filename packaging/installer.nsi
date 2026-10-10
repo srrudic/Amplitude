@@ -37,6 +37,14 @@ RequestExecutionLevel admin     ; writes to Program Files and the all-users Star
 !define CLASSES "Software\Classes"
 !define CAPABILITIES "Software\Amplitude\Capabilities"
 
+; Audio CDs: Amplitude is offered when one is put in (the AutoPlay window of
+; Windows XP and later) and in the right-click menu of a drive that holds
+; one (every Windows). Windows hands over the drive, "D:\"; unquoted, since a
+; quote after that backslash would be taken as part of the name.
+!define AUTOPLAY "Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers"
+!define CD_HANDLER "AmplitudePlayCDAudioOnArrival"
+!define CD_PROGID "Amplitude.AudioCD"
+
 !macro EACH_EXTENSION ACTION
     !insertmacro ${ACTION} ".mp3"
     !insertmacro ${ACTION} ".flac"
@@ -192,6 +200,16 @@ Section "Open audio files with Amplitude" SecAssociations
     WriteRegStr HKLM "${CAPABILITIES}" "ApplicationDescription" "A lightweight audio player."
     WriteRegStr HKLM "Software\RegisteredApplications" "Amplitude" "${CAPABILITIES}"
     !insertmacro EACH_EXTENSION ASSOCIATE
+
+    WriteRegStr HKLM "${CLASSES}\${CD_PROGID}\shell\play\command" "" '"$INSTDIR\amplitude.exe" %L'
+    WriteRegStr HKLM "${AUTOPLAY}\Handlers\${CD_HANDLER}" "Action" "Play audio CD"
+    WriteRegStr HKLM "${AUTOPLAY}\Handlers\${CD_HANDLER}" "Provider" "Amplitude"
+    WriteRegStr HKLM "${AUTOPLAY}\Handlers\${CD_HANDLER}" "InvokeProgID" "${CD_PROGID}"
+    WriteRegStr HKLM "${AUTOPLAY}\Handlers\${CD_HANDLER}" "InvokeVerb" "play"
+    WriteRegStr HKLM "${AUTOPLAY}\Handlers\${CD_HANDLER}" "DefaultIcon" "$INSTDIR\amplitude.exe,0"
+    WriteRegStr HKLM "${AUTOPLAY}\EventHandlers\PlayCDAudioOnArrival" "${CD_HANDLER}" ""
+    WriteRegStr HKLM "${CLASSES}\AudioCD\shell\amplitude" "" "Play with &Amplitude"
+    WriteRegStr HKLM "${CLASSES}\AudioCD\shell\amplitude\command" "" '"$INSTDIR\amplitude.exe" %L'
     SetRegView 32
     !insertmacro REFRESH_SHELL
 SectionEnd
@@ -213,6 +231,10 @@ Section "Uninstall"
     !insertmacro NATIVE_REGISTRY
     !insertmacro EACH_EXTENSION UNASSOCIATE
     DeleteRegKey HKLM "${CLASSES}\${PROGID}"
+    DeleteRegKey HKLM "${CLASSES}\${CD_PROGID}"
+    DeleteRegKey HKLM "${CLASSES}\AudioCD\shell\amplitude"
+    DeleteRegKey HKLM "${AUTOPLAY}\Handlers\${CD_HANDLER}"
+    DeleteRegValue HKLM "${AUTOPLAY}\EventHandlers\PlayCDAudioOnArrival" "${CD_HANDLER}"
     DeleteRegValue HKLM "Software\RegisteredApplications" "Amplitude"
     DeleteRegKey HKLM "Software\Amplitude"
     SetRegView 32

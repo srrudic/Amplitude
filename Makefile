@@ -228,6 +228,7 @@ deb: linux
 	install -Dm755 $(LINUX_DIR)/amplitude $(DEB_ROOT)/usr/bin/amplitude
 	install -Dm644 packaging/amplitude.desktop $(DEB_ROOT)/usr/share/applications/amplitude.desktop
 	install -Dm644 packaging/amplitude-enqueue.desktop $(DEB_ROOT)/usr/share/kio/servicemenus/amplitude-enqueue.desktop
+	install -Dm644 packaging/amplitude-audiocd.desktop $(DEB_ROOT)/usr/share/solid/actions/amplitude-audiocd.desktop
 	install -Dm644 assets/amplitude.svg $(DEB_ROOT)/usr/share/icons/hicolor/scalable/apps/amplitude.svg
 	for size in 16 24 32 48 64 128 256; do \
 	    install -Dm644 assets/icons/amplitude-$$size.png \

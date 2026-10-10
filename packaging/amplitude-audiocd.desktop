@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Service
+X-KDE-Solid-Predicate=OpticalDisc.availableContent & 'Audio'
+Actions=play;
+
+[Desktop Action play]
+Name=Play Audio CD with Amplitude
+Icon=amplitude
+Exec=amplitude cdda://%d

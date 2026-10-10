@@ -31,6 +31,7 @@ classic .wsz skins.
 install -Dm755 %{srcroot}/build/linux/amplitude %{buildroot}%{_bindir}/amplitude
 install -Dm644 %{srcroot}/packaging/amplitude.desktop %{buildroot}%{_datadir}/applications/amplitude.desktop
 install -Dm644 %{srcroot}/packaging/amplitude-enqueue.desktop %{buildroot}%{_datadir}/kio/servicemenus/amplitude-enqueue.desktop
+install -Dm644 %{srcroot}/packaging/amplitude-audiocd.desktop %{buildroot}%{_datadir}/solid/actions/amplitude-audiocd.desktop
 install -Dm644 %{srcroot}/assets/amplitude.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/amplitude.svg
 for size in 16 24 32 48 64 128 256; do
     install -Dm644 %{srcroot}/assets/icons/amplitude-$size.png \
@@ -44,6 +45,7 @@ install -Dm644 %{srcroot}/packaging/copyright %{buildroot}%{_datadir}/doc/amplit
 %{_bindir}/amplitude
 %{_datadir}/applications/amplitude.desktop
 %{_datadir}/kio/servicemenus/amplitude-enqueue.desktop
+%{_datadir}/solid/actions/amplitude-audiocd.desktop
 %{_datadir}/icons/hicolor/*/apps/amplitude.*
 %{_datadir}/metainfo/amplitude.metainfo.xml
 %license %{_datadir}/licenses/amplitude/LICENSE

@@ -935,6 +935,46 @@ static void open_cd(int play)
         play_track(first);
 }
 
+/* A whole disc, the way a desktop names one when it offers to play a disc
+ * just put in: fills in the drive and returns 1. Windows gives the drive
+ * ("D:\"), KDE is told to give "cdda:///dev/sr0" (see the packaging), GNOME
+ * gives "cdda://sr0/" or the folder it shows the disc as, whose name ends
+ * in "cdda:host=sr0". With `any`, no drive was named and all are to be
+ * looked at. */
+static int disc_from_path(const char *path, char *device, size_t size, int *any)
+{
+    static const char mounted[] = "cdda:host=";
+    const char *name = NULL, *found = strstr(path, mounted);
+    size_t len;
+
+    *any = 0;
+    if (path_is_cd(path)) {
+        int number;
+
+        if (cd_split_path(path, device, size, &number))
+            return 0;       /* one of our own: a track of a disc */
+        name = path + sizeof CD_PREFIX - 1;
+    } else if (found) {
+        name = found + sizeof mounted - 1;
+    } else if (((path[0] | 0x20) >= 'a' && (path[0] | 0x20) <= 'z') && path[1] == ':' &&
+               (!path[2] || ((path[2] == '\\' || path[2] == '/' || path[2] == '"') && !path[3]))) {
+        snprintf(device, size, "%c:", path[0]);
+        return 1;
+    } else {
+        return 0;
+    }
+    len = strlen(name);
+    while (len && name[len - 1] == '/')
+        len--;
+    if (!len)
+        *any = 1;
+    else if (name[0] == '/' || name[1] == ':')
+        snprintf(device, size, "%.*s", (int)len, name);
+    else
+        snprintf(device, size, "/dev/%.*s", (int)len, name);
+    return 1;
+}
+
 /* A station's .pls file: "File1=address" lines, among others. */
 static void add_pls(const char *path, int depth)
 {
@@ -958,13 +998,20 @@ static void add_pls(const char *path, int depth)
  * instead. */
 static void add_path(const char *path, int depth)
 {
-    char full[2048];
+    char full[2048], disc[CD_DEVICE_MAX];
     PathList list = { NULL, 0, 0 };
     int i;
 
     if (path_has_extension(path, ".wsz")) {
         set_skin(path);
         return;
+    }
+    if (disc_from_path(path, disc, sizeof disc, &i)) {
+        /* A disc put in a drive: all its tracks. (A drive holding no audio
+         * disc is a folder like any other, and goes on below.) */
+        if ((!i && add_cd(disc) >= 0) || (path_is_cd(path) && cd_find_disc(disc, sizeof disc) && add_cd(disc) >= 0) ||
+            path_is_cd(path))
+            return;
     }
     if (path_is_url(path) || path_is_cd(path)) {    /* a station, a file on the web, a CD track: taken as it is */
         playlist_add(path);

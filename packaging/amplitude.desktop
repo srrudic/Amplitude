@@ -9,4 +9,4 @@ StartupWMClass=amplitude
 Terminal=false
 Categories=AudioVideo;Audio;Player;
 Keywords=music;audio;player;mp3;flac;ogg;radio;stream;cd;playlist;
-MimeType=audio/mpeg;audio/mp3;audio/flac;audio/x-flac;audio/wav;audio/x-wav;audio/vnd.wave;audio/ogg;application/ogg;audio/x-vorbis+ogg;audio/x-opus+ogg;audio/opus;audio/mp4;audio/x-m4a;audio/x-m4b;audio/aac;audio/x-mod;audio/x-xm;audio/x-s3m;audio/x-it;audio/x-mpegurl;audio/mpegurl;audio/x-scpls;application/x-cue;
+MimeType=audio/mpeg;audio/mp3;audio/flac;audio/x-flac;audio/wav;audio/x-wav;audio/vnd.wave;audio/ogg;application/ogg;audio/x-vorbis+ogg;audio/x-opus+ogg;audio/opus;audio/mp4;audio/x-m4a;audio/x-m4b;audio/aac;audio/x-mod;audio/x-xm;audio/x-s3m;audio/x-it;audio/x-mpegurl;audio/mpegurl;audio/x-scpls;application/x-cue;x-content/audio-cdda;

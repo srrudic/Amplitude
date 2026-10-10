@@ -274,5 +274,26 @@ quit
 ok "both tracks of the disc are in the playlist" test "$(grep -c "^cdda://$WORK/cd/disc.cue/[12]\$" "$M3U")" = 2
 ok "the player reported no errors" sh -c "! grep -q '^amplitude:' '$WORK/stderr'"
 
+echo "--- audio CD: a whole disc named the way a desktop does when one is put in"
+# "cdda://<drive>" with no track, as the desktop's "play audio CD" action
+# passes it; the image stands in for the drive.
+rm -f "$M3U"
+start --scale 1 "cdda://$WORK/cd/disc.cue"
+sleep 1
+quit
+ok "both tracks of the disc are in the playlist" test "$(grep -c "^cdda://$WORK/cd/disc.cue/[12]\$" "$M3U")" = 2
+rm -f "$M3U"
+start --scale 1 "cdda://$WORK/cd/disc.cue/"
+sleep 1
+quit
+ok "and with a slash after the drive" test "$(grep -c "^cdda://$WORK/cd/disc.cue/[12]\$" "$M3U")" = 2
+# A drive that does not exist, and none that holds a disc: nothing is added,
+# and the address itself is not taken for a track.
+rm -f "$M3U"
+start --scale 1 "cdda://nosuchdrive/"
+sleep 1
+quit
+ok "a drive without a disc adds nothing" sh -c "! grep -q cdda '$M3U' 2>/dev/null"
+
 if [ $failed -eq 0 ]; then echo "gui test passed"; else echo "gui test FAILED"; fi
 exit $failed

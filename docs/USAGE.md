@@ -111,7 +111,11 @@ older is too old for many of today's servers.
 
 **Audio CDs.** "Play audio CD" in the menu adds the tracks of the disc in
 the drive to the playlist and starts the first; "Add audio CD" in the
-playlist's ADD menu only adds them. The tracks are named "CD Track 01" and
+playlist's ADD menu only adds them. The installed player is also offered
+by the system when a disc is put in: in the AutoPlay window of Windows XP
+and later ("Play audio CD using Amplitude") and in the right-click menu of
+the drive, and on Linux in the desktop's own popup or its settings for
+removable media. The tracks are named "CD Track 01" and
 so on at first, and they play, seek and follow one another without gaps
 like files. A moment later the names of the songs replace those, if they
 can be found. Some discs carry them themselves ("CD-Text"), and those are
