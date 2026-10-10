@@ -260,23 +260,31 @@ static void vis_background(Canvas *c, const Skin *skin)
             gfx_pixel(c, r->x + x, r->y + y, skin->vis[1]);
 }
 
+/* The line is placed by real pixels, not by the rows of the layout: 16 rows
+ * are 8 steps either way, too coarse for anything quiet to leave the centre
+ * line, and a magnified display has more to offer. */
 static void draw_scope(Canvas *c, const Skin *skin, const UiModel *m)
 {
     const Rect *r = &rects[UI_VIS];
-    int x, half = r->h / 2;
+    int x, x0, x1, top, bottom, centre, dot, half;
+
+    gfx_real_rect(c, r->x, r->y, r->w, r->h, &x0, &top, &x1, &bottom);
+    gfx_real_rect(c, r->x, r->y + r->h / 2, 1, 1, &x0, &centre, &x1, &dot);
+    dot -= centre;
+    half = centre - top;
 
     vis_background(c, skin);
     for (x = 0; x < r->w; x++) {
-        int dy = (int)(m->vis[x * AUDIO_VIS_SAMPLES / r->w] * (float)half);
+        int dy = (int)floorf(m->vis[x * AUDIO_VIS_SAMPLES / r->w] * (float)half + 0.5f);
         int shade;
 
-        if (dy > half - 1)
-            dy = half - 1;
-        if (dy < -half)
-            dy = -half;
+        if (dy > half)
+            dy = half;
+        if (dy < centre + dot - bottom)
+            dy = centre + dot - bottom;
         /* Colours 18..22 run from the centre line outwards. */
         shade = (dy < 0 ? -dy : dy) * 5 / (half + 1);
-        gfx_pixel(c, r->x + x, r->y + half - dy, skin->vis[18 + shade]);
+        gfx_pixel_shifted(c, r->x + x, r->y + r->h / 2, -dy, skin->vis[18 + shade]);
     }
 }
 

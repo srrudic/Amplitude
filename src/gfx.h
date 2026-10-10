@@ -65,6 +65,9 @@ void gfx_set_bound(Canvas *c, int x, int y, int w, int h);
 
 void gfx_pixel(Canvas *c, int x, int y, uint32_t color);
 void gfx_rect(Canvas *c, int x, int y, int w, int h, uint32_t color);
+/* A pixel of the layout moved down by `shift_y` real pixels, for placing
+ * one more finely than the layout's grid allows. */
+void gfx_pixel_shifted(Canvas *c, int x, int y, int shift_y, uint32_t color);
 /* One-pixel lines. Their real thickness is the same everywhere on the
  * canvas, which a scaled gfx_rect() of height or width 1 cannot promise. */
 void gfx_hline(Canvas *c, int x, int y, int w, uint32_t color);

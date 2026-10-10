@@ -182,6 +182,12 @@ void gfx_pixel(Canvas *c, int x, int y, uint32_t color)
     gfx_rect(c, x, y, 1, 1, color);
 }
 
+void gfx_pixel_shifted(Canvas *c, int x, int y, int shift_y, uint32_t color)
+{
+    fill(c, real(c, c->ox + x), real(c, c->oy + y) + shift_y,
+         real(c, c->ox + x + 1), real(c, c->oy + y + 1) + shift_y, color);
+}
+
 void gfx_hline(Canvas *c, int x, int y, int w, uint32_t color)
 {
     int y0 = real(c, c->oy + y);
