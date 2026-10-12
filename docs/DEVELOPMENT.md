@@ -53,6 +53,8 @@ is missing.
 ## 3. Building
 
     make            # build/linux/amplitude
+    make install    # installs it under /usr/local, with its menu entry and icons (needs root;
+                    # PREFIX=... for another place, make uninstall to remove)
     make windows    # build/win32/amplitude.exe (32-bit, for every Windows)
                     # and build/win64/amplitude.exe (64-bit)
     make windows32  # only the 32-bit one

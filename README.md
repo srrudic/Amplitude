@@ -35,6 +35,7 @@ are enough; the tools for the other targets are fetched into `.toolchain/`
 the first time they are needed.
 
     make              # Linux: build/linux/amplitude
+    sudo make install # put it on this machine (make uninstall removes it)
     make windows      # Windows, 32 and 64-bit: build/win32, build/win64
     make installer    # the two Windows installers
     make deb          # Debian package

@@ -1,6 +1,8 @@
 # Amplitude build
 #
 #   make            native Linux build         -> build/linux/amplitude
+#   make install    puts it on this machine    -> /usr/local (PREFIX=... for elsewhere);
+#                   make uninstall takes it away again
 #   make windows    both Windows cross builds  -> build/win32/amplitude.exe (32-bit)
 #                                                 build/win64/amplitude.exe (64-bit)
 #   make windows32  only the 32-bit one
@@ -149,7 +151,7 @@ $(foreach dir,$(LINUX_DIR) $(WIN_DIR) $(WIN64_DIR),$(dir)/ui_about.o $(dir)/stre
 
 # Plain "make" builds for the machine it runs on; "make all" builds every
 # release file.
-.PHONY: all linux windows windows32 windows64 installer deb rpm dist clean test test-gui fonts website soak
+.PHONY: all linux install uninstall windows windows32 windows64 installer deb rpm dist clean test test-gui fonts website soak
 .DEFAULT_GOAL := linux
 all: linux deb rpm windows installer
 linux: $(LINUX_DIR)/amplitude
@@ -219,26 +221,54 @@ endef
 $(eval $(call INSTALLER_RULE,32,$(WIN_DIR)/amplitude.exe))
 $(eval $(call INSTALLER_RULE,64,$(WIN64_DIR)/amplitude.exe))
 
+# --- Installing on this machine --------------------------------------------------
+# For those who build from source: the player, its menu entry and its icons.
+# (PREFIX=/usr installs where a package would; DESTDIR is for packagers.)
+PREFIX  ?= /usr/local
+DESTDIR ?=
+SHARE   := $(DESTDIR)$(PREFIX)/share
+
+install: linux
+	install -Dm755 $(LINUX_DIR)/amplitude $(DESTDIR)$(PREFIX)/bin/amplitude
+	install -Dm644 packaging/amplitude.desktop $(SHARE)/applications/amplitude.desktop
+	install -Dm644 packaging/amplitude-enqueue.desktop $(SHARE)/kio/servicemenus/amplitude-enqueue.desktop
+	install -Dm644 packaging/amplitude-audiocd.desktop $(SHARE)/solid/actions/amplitude-audiocd.desktop
+	install -Dm644 assets/amplitude.svg $(SHARE)/icons/hicolor/scalable/apps/amplitude.svg
+	for size in 16 24 32 48 64 128 256; do \
+	    install -Dm644 assets/icons/amplitude-$$size.png \
+	        $(SHARE)/icons/hicolor/$${size}x$${size}/apps/amplitude.png; \
+	done
+	install -d -m755 $(SHARE)/metainfo
+	sed -e 's/@VERSION@/$(VERSION)/' -e 's/@DATE@/$(RELEASE_DATE)/' packaging/amplitude.metainfo.xml \
+	    > $(SHARE)/metainfo/amplitude.metainfo.xml
+	chmod 644 $(SHARE)/metainfo/amplitude.metainfo.xml
+ifeq ($(DESTDIR),)
+	-update-desktop-database -q $(SHARE)/applications 2>/dev/null
+	-gtk-update-icon-cache -q -t -f $(SHARE)/icons/hicolor 2>/dev/null
+endif
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/amplitude \
+	    $(SHARE)/applications/amplitude.desktop \
+	    $(SHARE)/kio/servicemenus/amplitude-enqueue.desktop \
+	    $(SHARE)/solid/actions/amplitude-audiocd.desktop \
+	    $(SHARE)/icons/hicolor/scalable/apps/amplitude.svg \
+	    $(SHARE)/icons/hicolor/*/apps/amplitude.png \
+	    $(SHARE)/metainfo/amplitude.metainfo.xml
+ifeq ($(DESTDIR),)
+	-update-desktop-database -q $(SHARE)/applications 2>/dev/null
+	-gtk-update-icon-cache -q -t -f $(SHARE)/icons/hicolor 2>/dev/null
+endif
+
 # --- Debian package -----------------------------------------------------------
 DEB_ARCH := $(shell dpkg --print-architecture 2>/dev/null)
 DEB_ROOT := build/deb/amplitude_$(VERSION)_$(DEB_ARCH)
 
 deb: linux
 	rm -rf $(DEB_ROOT)
-	install -Dm755 $(LINUX_DIR)/amplitude $(DEB_ROOT)/usr/bin/amplitude
-	install -Dm644 packaging/amplitude.desktop $(DEB_ROOT)/usr/share/applications/amplitude.desktop
-	install -Dm644 packaging/amplitude-enqueue.desktop $(DEB_ROOT)/usr/share/kio/servicemenus/amplitude-enqueue.desktop
-	install -Dm644 packaging/amplitude-audiocd.desktop $(DEB_ROOT)/usr/share/solid/actions/amplitude-audiocd.desktop
-	install -Dm644 assets/amplitude.svg $(DEB_ROOT)/usr/share/icons/hicolor/scalable/apps/amplitude.svg
-	for size in 16 24 32 48 64 128 256; do \
-	    install -Dm644 assets/icons/amplitude-$$size.png \
-	        $(DEB_ROOT)/usr/share/icons/hicolor/$${size}x$${size}/apps/amplitude.png; \
-	done
+	$(MAKE) --no-print-directory install DESTDIR=$(DEB_ROOT) PREFIX=/usr
 	install -Dm644 packaging/copyright $(DEB_ROOT)/usr/share/doc/amplitude/copyright
-	install -d -m755 $(DEB_ROOT)/usr/share/metainfo $(DEB_ROOT)/DEBIAN
-	sed -e 's/@VERSION@/$(VERSION)/' -e 's/@DATE@/$(RELEASE_DATE)/' packaging/amplitude.metainfo.xml \
-	    > $(DEB_ROOT)/usr/share/metainfo/amplitude.metainfo.xml
-	chmod 644 $(DEB_ROOT)/usr/share/metainfo/amplitude.metainfo.xml
+	install -d -m755 $(DEB_ROOT)/DEBIAN
 	sed -e 's/@VERSION@/$(VERSION)/' -e 's/@ARCH@/$(DEB_ARCH)/' \
 	    -e 's/@MAINTAINER@/$(DEB_MAINTAINER)/' packaging/control.in > $(DEB_ROOT)/DEBIAN/control
 	dpkg-deb --build --root-owner-group $(DEB_ROOT) build/amplitude_$(VERSION)_$(DEB_ARCH).deb
