@@ -228,6 +228,18 @@ PREFIX  ?= /usr/local
 DESTDIR ?=
 SHARE   := $(DESTDIR)$(PREFIX)/share
 
+# The icon index is brought up to date where the system keeps one. Elsewhere
+# (/usr/local, as a rule) there must be none: an index made there lists no
+# icons at all, and a desktop that trusts it then finds none and shows a
+# small stand-in, blown up.
+define ICON_CACHE
+@if [ -f $(SHARE)/icons/hicolor/index.theme ]; then \
+	    gtk-update-icon-cache -q -f $(SHARE)/icons/hicolor 2>/dev/null || true; \
+	else \
+	    rm -f $(SHARE)/icons/hicolor/icon-theme.cache; \
+	fi
+endef
+
 install: linux
 	install -Dm755 $(LINUX_DIR)/amplitude $(DESTDIR)$(PREFIX)/bin/amplitude
 	install -Dm644 packaging/amplitude.desktop $(SHARE)/applications/amplitude.desktop
@@ -243,8 +255,8 @@ install: linux
 	    > $(SHARE)/metainfo/amplitude.metainfo.xml
 	chmod 644 $(SHARE)/metainfo/amplitude.metainfo.xml
 ifeq ($(DESTDIR),)
-	-update-desktop-database -q $(SHARE)/applications 2>/dev/null
-	-gtk-update-icon-cache -q -t -f $(SHARE)/icons/hicolor 2>/dev/null
+	@! command -v update-desktop-database >/dev/null || update-desktop-database -q $(SHARE)/applications || true
+	$(ICON_CACHE)
 endif
 
 uninstall:
@@ -256,8 +268,8 @@ uninstall:
 	    $(SHARE)/icons/hicolor/*/apps/amplitude.png \
 	    $(SHARE)/metainfo/amplitude.metainfo.xml
 ifeq ($(DESTDIR),)
-	-update-desktop-database -q $(SHARE)/applications 2>/dev/null
-	-gtk-update-icon-cache -q -t -f $(SHARE)/icons/hicolor 2>/dev/null
+	@! command -v update-desktop-database >/dev/null || update-desktop-database -q $(SHARE)/applications || true
+	$(ICON_CACHE)
 endif
 
 # --- Debian package -----------------------------------------------------------
